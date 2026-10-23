@@ -1,28 +1,43 @@
 import streamlit as st
 import duckdb
 import plotly.express as px
-import plotly.graph_objects as go
 import pandas as pd
 
 st.set_page_config(page_title="Dashboard Production & Logistique", layout="wide")
 
-st.title("📦 Tableau de Bord Production & Logistique")
+st.title("📦 Tableau de Bord Production & Logistique (Multi-Tables)")
 
-# --- 1. IMPORTATION DES FICHIERS CSV ---
-uploaded_file = st.sidebar.file_uploader("Importer le CSV Shipment (Shippingbo)", type=["csv"])
+# --- 1. IMPORTATION DES FICHIERS CSV MULTIPLES ---
+st.sidebar.header("📁 Import des fichiers Shippingbo")
+uploaded_shipments = st.sidebar.file_uploader("1. Importer le CSV shipment", type=["csv"])
+uploaded_orders = st.sidebar.file_uploader("2. Importer le CSV order", type=["csv"])
+uploaded_returns = st.sidebar.file_uploader("3. Importer le CSV returnorder", type=["csv"])
 
-if uploaded_file is not None:
-    # Charger le CSV dans une table SQL temporaire en mémoire avec DuckDB
-    # DuckDB détecte automatiquement les types de colonnes et les dates
-    con = duckdb.connect(database=':memory:')
-    con.execute("CREATE TABLE shipments AS SELECT * FROM read_csv_auto(?)", [uploaded_file.name])
+# Connexion DuckDB en mémoire
+con = duckdb.connect(database=':memory:')
 
-    st.success("Fichier chargé et indexé en SQL avec succès !")
+data_loaded = False
 
-    # --- 2. EXEMPLE DE REQUÊTE SQL : CADENCE DE PRÉPARATION PAR HEURE ---
-    st.subheader("📊 Préparation par Heure (Requête SQL)")
+if uploaded_shipments is not None:
+    # Charger le CSV shipment proprement via pandas vers DuckDB
+    df_shipments = pd.read_csv(uploaded_shipments)
+    con.register('shipments', df_shipments)
+    data_loaded = True
 
-    # Tu peux écrire n'importe quelle requête SQL ANSI standard ici
+if uploaded_orders is not None:
+    df_orders = pd.read_csv(uploaded_orders)
+    con.register('orders', df_orders)
+
+if uploaded_returns is not None:
+    df_returns = pd.read_csv(uploaded_returns)
+    con.register('returnorders', df_returns)
+
+if data_loaded:
+    st.success("Données chargées avec succès dans la base de données SQL !")
+
+    # --- 2. EXEMPLE DE REQUÊTE SQL : CADENCE DE PRÉPARATION ---
+    st.subheader("📊 Préparation par Heure (Basé sur shipments)")
+
     query_cadence = """
         SELECT 
             EXTRACT(HOUR FROM CAST(sentAt AS TIMESTAMP)) AS Heure,
@@ -36,10 +51,9 @@ if uploaded_file is not None:
     
     df_cadence = con.execute(query_cadence).df()
 
-    # Affichage du tableau SQL et du graphique
     col1, col2 = st.columns([1, 2])
     with col1:
-        st.write("Résultat de la requête SQL :")
+        st.write("Résultat SQL :")
         st.dataframe(df_cadence, use_container_width=True)
     
     with col2:
@@ -55,13 +69,12 @@ if uploaded_file is not None:
 
     st.divider()
 
-    # --- 3. CHRONOGRAMME DE PRODUCTION (TEMPS DE MARCHE VS ARRÊTS) ---
-    st.subheader("⏱️ Chronogramme de Production (Analyse d'Inactivité)")
+    # --- 3. CHRONOGRAMME DE PRODUCTION ---
+    st.subheader("⏱️ Chronogramme de Production (Arrêts vs Mouvements)")
+    
+    seuil_arret = st.slider("Seuil de détection d'arrêt (minutes sans colis)", 1, 15, 3)
 
-    seuil_arret_minutes = st.slider("Seuil de détection d'arrêt (minutes sans colis)", 1, 15, 3)
-
-    # Requête SQL pour calculer l'écart de temps entre 2 colis consécutifs
-    query_chronogramme = f"""
+    query_chrono = f"""
         WITH ordered_events AS (
             SELECT 
                 CAST(sentAt AS TIMESTAMP) AS ts,
@@ -82,32 +95,31 @@ if uploaded_file is not None:
             fin, 
             duree_minutes,
             CASE 
-                WHEN duree_minutes >= {seuil_arret_minutes} THEN 'Arrêt / Pause' 
+                WHEN duree_minutes >= {seuil_arret} THEN 'Arrêt / Pause' 
                 ELSE 'En Production' 
             END AS statut
         FROM gaps
         ORDER BY debut
     """
 
-    df_chrono = con.execute(query_chronogramme).df()
+    df_chrono = con.execute(query_chrono).df()
 
-    # Visualisation du Chronogramme avec Plotly Gantt / Timeline
-    color_map = {'En Production': '#2ca02c', 'Arrêt / Pause': '#d62728'}
-    
-    fig_timeline = px.timeline(
-        df_chrono, 
-        x_start="debut", 
-        x_end="fin", 
-        y=[0]*len(df_chrono), 
-        color="statut",
-        color_discrete_map=color_map,
-        title=f"Chronogramme d'activité (Arrêt défini si pas de colis pendant > {seuil_arret_minutes} min)"
-    )
-    
-    # Épurer l'axe Y pour ressembler à la bannière de la photo
-    fig_timeline.update_yaxes(visible=False)
-    fig_timeline.update_layout(height=180, showlegend=True)
-    st.plotly_chart(fig_timeline, use_container_width=True)
+    if not df_chrono.empty:
+        color_map = {'En Production': '#2ca02c', 'Arrêt / Pause': '#d62728'}
+        fig_timeline = px.timeline(
+            df_chrono, 
+            x_start="debut", 
+            x_end="fin", 
+            y=[0]*len(df_chrono), 
+            color="statut",
+            color_discrete_map=color_map,
+            title=f"Chronogramme d'activité (Seuil : {seuil_arret} min)"
+        )
+        fig_timeline.update_yaxes(visible=False)
+        fig_timeline.update_layout(height=180, showlegend=True)
+        st.plotly_chart(fig_timeline, use_container_width=True)
+    else:
+        st.warning("Pas assez de données pour afficher le chronogramme.")
 
 else:
-    st.info("Veuillez importer votre fichier CSV de Shippingbo dans le panneau de gauche pour démarrer.")
+    st.info("👈 Veuillez importer au moins le fichier CSV `shipment` dans le panneau de gauche pour commencer.")
