@@ -401,7 +401,7 @@ if uploaded_file is not None:
                 ))
                 
                 fig.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=330,
+                    plot_bgcolor='white', paper_bgcolor='white', height=320,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
                     xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
