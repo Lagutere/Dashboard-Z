@@ -100,7 +100,7 @@ if uploaded_file is not None:
 
     top_c1, top_c2, top_c3 = st.columns(3)
 
-    # COLONNE 1 : Colis Expédiés + Reste à Fabriquer (Camembert) en dessous
+    # COLONNE 1 : Colis Expédiés + Reste à Fabriquer (Camembert) en dessous (Hauteur ajustée)
     with top_c1:
         col_colis_exp = 'COLIS préparés (Shipment)' if 'COLIS préparés (Shipment)' in df.columns else df.columns[11]
         val_colis = pd.to_numeric(row_veille.get(col_colis_exp, 0), errors='coerce')
@@ -111,9 +111,9 @@ if uploaded_file is not None:
         bg_header = "#b8860b" if is_record_colis else "#1a4d2e"
         title_text = "🏆 RECORD COLIS EXPÉDIÉS" if is_record_colis else "📦 Colis Expédiés"
         with st.container(border=True):
-            st.markdown(f"<div style='background-color: {bg_header}; color: white; padding: 10px; font-weight: bold; border-radius: 5px; text-align: center; margin-bottom: 10px;'>{title_text}</div>", unsafe_allow_html=True)
-            st.markdown(f"<h1 style='color: {bg_header}; text-align: center; font-size: 2.2em; margin: 0;'>{val_colis:,.0f}</h1>", unsafe_allow_html=True)
-            st.markdown(f"<p style='text-align: center; color: #666; margin: 5px 0 0 0;'>Max historique : {max_colis:,.0f}</p>", unsafe_allow_html=True)
+            st.markdown(f"<div style='background-color: {bg_header}; color: white; padding: 8px; font-weight: bold; border-radius: 5px; text-align: center; margin-bottom: 5px;'>{title_text}</div>", unsafe_allow_html=True)
+            st.markdown(f"<h1 style='color: {bg_header}; text-align: center; font-size: 2.0em; margin: 0;'>{val_colis:,.0f}</h1>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: center; color: #666; margin: 2px 0 0 0; font-size: 0.9em;'>Max historique : {max_colis:,.0f}</p>", unsafe_allow_html=True)
 
         col_n = 'Colis Expédiés physiquement' if 'Colis Expédiés physiquement' in df.columns else df.columns[13]
         col_p = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
@@ -124,7 +124,7 @@ if uploaded_file is not None:
         if pd.isna(val_raf): val_raf = 0
 
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📦 Reste à Fabriquer (Commandes)</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 8px; font-weight: bold; border-radius: 5px; margin-bottom: 5px;'>📦 Reste à Fabriquer (Commandes)</div>", unsafe_allow_html=True)
             
             fig_donut = go.Figure(data=[go.Pie(
                 labels=['Fabriqué (Cde)', 'Restant à fabriquer / RAF (Cde)'],
@@ -135,17 +135,23 @@ if uploaded_file is not None:
                 hoverinfo='label+value'
             )])
             fig_donut.update_layout(
-                height=195, margin=dict(t=5, b=5, l=5, r=5), showlegend=True,
-                legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5)
+                height=165, margin=dict(t=0, b=0, l=0, r=0), showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps (Demi-compteur avec seuil fushia de l'objectif actif)
+    # COLONNE 2 : Préparées à Temps (Avec moyenne des derniers jours sous le score)
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     if pd.isna(val_taux_raw): val_taux_raw = 0
     val_taux_pct = val_taux_raw * 100 if val_taux_raw <= 2.0 else val_taux_raw
     val_gauge_display = min(100.0, val_taux_pct)
+
+    # Calcul de la moyenne des derniers jours (sur la colonne du KPI)
+    s_all_taux = pd.to_numeric(df[col_taux_temps], errors='coerce')
+    s_all_taux_pct = s_all_taux.apply(lambda x: x * 100 if x <= 2.0 else x)
+    mean_taux_days = s_all_taux_pct[s_all_taux_pct > 0].mean()
+    if pd.isna(mean_taux_days): mean_taux_days = val_taux_pct
 
     with top_c2:
         with st.container(border=True):
@@ -163,8 +169,8 @@ if uploaded_file is not None:
             fig_gauge = go.Figure(go.Indicator(
                 mode = "gauge+number",
                 value = val_gauge_display,
-                number = {'suffix': "%", 'valueformat': ".1f" if val_taux_pct > 100 else ".0f", 'font': {'color': gauge_bar_color, 'size': 26}},
-                title = {'text': f"<span style='font-size:12px; color:gray;'>Réel : {val_taux_pct:.1f}%</span>" if val_taux_pct > 100 else ""},
+                number = {'suffix': "%", 'valueformat': ".1f" if val_taux_pct > 100 else ".0f", 'font': {'color': gauge_bar_color, 'size': 24}},
+                title = {'text': f"<span style='font-size:11px; color:gray;'>Réel : {val_taux_pct:.1f}% | Moy. Jours : {mean_taux_days:.1f}%</span>"},
                 gauge = {
                     'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
                     'bar': {'color': gauge_bar_color},
@@ -180,7 +186,7 @@ if uploaded_file is not None:
                     }
                 }
             ))
-            fig_gauge.update_layout(height=160, margin=dict(t=10, b=0, l=10, r=10))
+            fig_gauge.update_layout(height=145, margin=dict(t=5, b=0, l=10, r=10))
             st.plotly_chart(fig_gauge, use_container_width=True)
 
             target_j_labels = ['J-3', 'J-2', 'J-1', 'J+0', 'J+1']
@@ -215,37 +221,26 @@ if uploaded_file is not None:
                 textfont=dict(color='white', size=12, family='Arial Black'), showlegend=False
             ))
             fig_j.update_layout(
-                barmode='overlay', height=110, margin=dict(t=5, b=5, l=5, r=5),
+                barmode='overlay', height=100, margin=dict(t=5, b=5, l=5, r=5),
                 xaxis=dict(showgrid=False, tickfont=dict(size=11, family='Arial Black')),
                 yaxis=dict(range=[0, 100], showgrid=False, visible=False),
                 plot_bgcolor='white', paper_bgcolor='white'
             )
             st.plotly_chart(fig_j, use_container_width=True)
 
-    # COLONNE 3 : Délais d'Expédition (Ligne objectif fushia foncé sur le graph + Record MIN colonne AF / index 31)
+    # COLONNE 3 : Délais d'Expédition
     col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
     raw_delai = row_veille.get(col_delai[0] if col_delai else '', 0)
     val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
     if pd.isna(val_delai_num): val_delai_num = 0.0
 
-    # Recherche de la colonne AF (ou index 31) pour le record MIN
-    col_af_name = None
-    # Colonne AF correspond à l'index 31 dans Excel (A=0 ... AF=31)
-    if len(df.columns) > 31:
-        col_af_name = df.columns[31]
-    
-    # Recherche alternative par libellé si besoin
-    match_af = [c for c in df.columns if 'af' in str(c).lower() or 'min' in str(c).lower() or 'record' in str(c).lower()]
-    if col_af_name is None and match_af:
-        col_af_name = match_af[0]
-
+    col_af_name = df.columns[31] if len(df.columns) > 31 else None
     min_af_val = None
     if col_af_name is not None and col_af_name in df.columns:
         s_af = pd.to_numeric(df[col_af_name], errors='coerce')
         if not s_af.dropna().empty:
             min_af_val = s_af[s_af > 0].min()
 
-    # Fallback si colonne AF introuvable : calcul du min sur la colonne de délai
     if min_af_val is None and col_delai:
         s_delai_all = pd.to_numeric(df[col_delai[0]], errors='coerce')
         min_af_val = s_delai_all[s_delai_all > 0].min()
@@ -283,7 +278,6 @@ if uploaded_file is not None:
                     textfont=dict(color='white', size=14, family='Arial Black')
                 ))
 
-                # Ligne horizontale en fushia foncé pour l'objectif du jour (obj_delai_actif)
                 fig_bar_vert.add_shape(
                     type="line", x0=-0.5, x1=0.5, y0=obj_delai_actif, y1=obj_delai_actif,
                     line=dict(color="#8b008b", width=3, dash="solid")
