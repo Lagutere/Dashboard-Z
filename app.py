@@ -200,4 +200,9 @@ if uploaded_file is not None:
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🛡️ Encart Qualité & Incidents</div>", unsafe_allow_html=True)
-            qualite_texte = st.text_area("Notes qualité", value="RAS ce matin. Vigilance sur les sacs percés
+            qualite_texte = st.text_area("Notes qualité", value="RAS ce matin. Vigilance sur les sacs percés.")
+
+        st.success("💡 **Conseil Point d'Équipe :** Utilisez cet écran à 8h30 pour fixer les caps avec l'équipe !")
+
+else:
+    st.info("👈 Veuillez importer votre fichier CSV quotidien via le menu de gauche.")
