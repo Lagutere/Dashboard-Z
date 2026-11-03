@@ -24,6 +24,46 @@ st.markdown("""
         font-family: 'Helvetica Neue', sans-serif;
     }
 
+    /* Arrière-plans globaux très légèrement teintés */
+    .bg-section-veille {
+        background-color: rgba(26, 77, 46, 0.03);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+
+    .bg-section-jour {
+        background-color: rgba(64, 224, 208, 0.08);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+
+    /* Titres avec fond surligné */
+    .title-highlight-veille {
+        background-color: rgba(26, 77, 46, 0.15);
+        color: #1a4d2e;
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 1.5em;
+        font-weight: bold;
+        display: inline-block;
+        margin-bottom: 15px;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+
+    .title-highlight-jour {
+        background-color: #7fffd4;
+        color: #1a4d2e;
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 1.5em;
+        font-weight: bold;
+        display: inline-block;
+        margin-bottom: 15px;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+
     h2, h3 { color: #1a4d2e !important; font-family: 'Helvetica Neue', sans-serif; }
     .stButton>button { background-color: #1a4d2e; color: white; border-radius: 8px; }
     </style>
@@ -94,19 +134,20 @@ if uploaded_file is not None:
     obj_temps_actif = st.session_state.obj_temps_lundi if is_lundi else st.session_state.obj_temps_autre
 
     # ==========================================
-    # BLOC 1 : INDICATEURS DU HAUT (3 COLONNES)
+    # BLOC 1 : BILAN & INDICATEURS DE LA VEILLE
     # ==========================================
-    st.subheader("📊 Bilan & Indicateurs de la Veille")
+    st.markdown('<div class="bg-section-veille">', unsafe_allow_html=True)
+    st.markdown('<div class="title-highlight-veille">📊 Bilan & Indicateurs de la Veille</div>', unsafe_allow_html=True)
 
     top_c1, top_c2, top_c3 = st.columns(3)
 
-    # COLONNE 1 : Colis Expédiés + Jauge de progression / Record + Reste à Fabriquer
+    # COLONNE 1 : Colis Expédiés + Reste à Fabriquer
     with top_c1:
         col_colis_exp = 'COLIS préparés (Shipment)' if 'COLIS préparés (Shipment)' in df.columns else df.columns[11]
         val_colis = pd.to_numeric(row_veille.get(col_colis_exp, 0), errors='coerce')
         if pd.isna(val_colis): val_colis = 0
         max_colis = pd.to_numeric(df[col_colis_exp], errors='coerce').max()
-        if pd.isna(max_colis) or max_colis == 0: max_colis = 1646  # Valeur de secours si besoin
+        if pd.isna(max_colis) or max_colis == 0: max_colis = 1646
         
         is_record_colis = (val_colis >= max_colis) and (val_colis > 0)
 
@@ -118,13 +159,10 @@ if uploaded_file is not None:
             st.markdown(f"<h1 style='color: {bg_header}; text-align: center; font-size: 2.0em; margin: 0;'>{val_colis:,.0f}</h1>", unsafe_allow_html=True)
             st.markdown(f"<p style='text-align: right; color: #666; margin: 0 0 2px 0; font-size: 0.8em;'>Record : {max_colis:,.0f}</p>", unsafe_allow_html=True)
 
-            # Mini graphique horizontal (rectangle gris fond + rectangle vert superposition)
             fig_record = go.Figure()
-            # Fond gris (max historique)
             fig_record.add_trace(go.Bar(
                 y=['Colis'], x=[max_colis], orientation='h', marker_color='#d3d3d3', hoverinfo='skip'
             ))
-            # Réalisé (vert par-dessus)
             fig_record.add_trace(go.Bar(
                 y=['Colis'], x=[val_colis], orientation='h', marker_color='#2e7d32', hoverinfo='skip'
             ))
@@ -318,17 +356,13 @@ if uploaded_file is not None:
                 )
                 st.plotly_chart(fig_bar_vert, use_container_width=True)
 
-
-    # ==========================================
-    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (HAUTEURS HARMONISÉES À 270)
-    # ==========================================
+    # GRAPHIQUES MID
     mid_c1, mid_c2 = st.columns(2)
 
     col_prod_p2 = 'Productivité P2' if 'Productivité P2' in df.columns else [c for c in df.columns if 'Productivité P2' in str(c)][0]
     val_prod = pd.to_numeric(row_veille.get(col_prod_p2, 0), errors='coerce')
     if pd.isna(val_prod): val_prod = 0.0
 
-    # 1. Productivité P2 (15 Derniers Jours)
     with mid_c1:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📊 Productivité P2 - 15 Derniers Jours</div>", unsafe_allow_html=True)
@@ -364,10 +398,7 @@ if uploaded_file is not None:
                     margin=dict(t=20, b=20, l=20, r=20), showlegend=False
                 )
                 st.plotly_chart(fig_p2, use_container_width=True)
-            else:
-                st.info("Données insuffisantes pour l'historique de productivité P2.")
 
-    # 2. Cadence Heure par Heure
     with mid_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
@@ -378,7 +409,6 @@ if uploaded_file is not None:
 
             if len(hour_cols) > 0:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
-                
                 hours_labels = [f"{7 + i}h00" for i in range(len(hour_cols))]
 
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
@@ -429,15 +459,15 @@ if uploaded_file is not None:
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
                 )
                 st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Colonnes horaires non détectées.")
+
+    st.markdown('</div>', unsafe_allow_html=True)  # Fin du fond de section Veille
 
 
     # ==========================================
-    # BLOC 3 : ENCADRÉS DE PILOTAGE DU JOUR (EN DESSOUS)
+    # BLOC 2 : PILOTAGE DU JOUR & ALIGNEMENT
     # ==========================================
-    st.markdown("---")
-    st.subheader("🎯 Pilotage du Jour & Alignement")
+    st.markdown('<div class="bg-section-jour">', unsafe_allow_html=True)
+    st.markdown('<div class="title-highlight-jour">🎯 Pilotage du Jour & Alignement</div>', unsafe_allow_html=True)
 
     bot_c1, bot_c2 = st.columns(2)
 
@@ -458,6 +488,8 @@ if uploaded_file is not None:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🛡️ Encart Qualité & Incidents</div>", unsafe_allow_html=True)
             st.session_state.qualite_val = st.text_area("Notes qualité", value=st.session_state.qualite_val)
+
+    st.markdown('</div>', unsafe_allow_html=True)  # Fin du fond de section Jour
 
     st.success("💡 **Conseil Point d'Équipe :** Utilisez cet écran à 8h30 pour fixer les caps avec l'équipe !")
 
