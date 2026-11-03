@@ -161,14 +161,14 @@ if uploaded_file is not None:
                 fig_gauge.update_layout(height=110, margin=dict(t=5, b=5, l=10, r=10))
                 st.plotly_chart(fig_gauge, use_container_width=True)
 
-        # Encart Productivité P2 (Graphique 15 Derniers Jours à la place du texte)
+        # Encart Productivité P2 (Graphique 15 Derniers Jours avec ligne objectif fushia foncé)
         col_prod_p2 = 'Productivité P2' if 'Productivité P2' in df.columns else [c for c in df.columns if 'Productivité P2' in str(c)][0]
         val_prod = pd.to_numeric(row_veille.get(col_prod_p2, 0), errors='coerce')
         if pd.isna(val_prod): val_prod = 0.0
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📊 Productivité P2 - 15 Derniers Jours</div>", unsafe_allow_html=True)
-            obj_prod = st.number_input("🎯 Objectif Productivité P2 (saisie manuelle)", value=15.0, step=0.5)
+            obj_prod = st.number_input("🎯 Objectif Productivité P2 (saisie manuelle)", value=18.0, step=0.5)
 
             df_hist_p2 = df.tail(15).copy()
             if not df_hist_p2.empty:
@@ -183,12 +183,13 @@ if uploaded_file is not None:
                     if pd.isna(v_val): v_val = 0.0
 
                     if is_selected_day:
-                        # Couleur du dernier jour selon l'objectif (Vert ou Rouge foncé)
                         colors_p2.append('#2e7d32' if v_val >= obj_prod else '#8b0000')
                     else:
                         colors_p2.append('#1a4d2e')
 
                 fig_p2 = go.Figure()
+                
+                # 1. Histogramme des barres
                 fig_p2.add_trace(go.Bar(
                     x=dates_p2,
                     y=vals_p2,
@@ -196,10 +197,22 @@ if uploaded_file is not None:
                     textposition='outside',
                     marker_color=colors_p2
                 ))
+
+                # 2. Ligne horizontale de l'objectif en fushia foncé derrière les barres
+                fig_p2.add_shape(
+                    type="line",
+                    x0=-0.5,
+                    x1=len(dates_p2) - 0.5,
+                    y0=obj_prod,
+                    y1=obj_prod,
+                    line=dict(color="#8b008b", width=2, dash="solid"),
+                    layer="below"
+                )
+
                 fig_p2.update_layout(
                     plot_bgcolor='white',
                     paper_bgcolor='white',
-                    height=240,
+                    height=250,
                     margin=dict(t=20, b=20, l=20, r=20),
                     showlegend=False
                 )
