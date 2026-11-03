@@ -82,17 +82,17 @@ if 'amelioration_val' not in st.session_state:
 if 'qualite_val' not in st.session_state:
     st.session_state.qualite_val = "RAS ce matin. Vigilance sur les sacs percés."
 
-# Objectifs persistants pour le délai d'expédition
+# Objectifs persistants pour le délai d'expédition et taux de service
 if 'obj_delai_lundi' not in st.session_state:
     st.session_state.obj_delai_lundi = 1.40
 if 'obj_delai_autre' not in st.session_state:
     st.session_state.obj_delai_autre = 0.80
-
-# Objectifs persistants pour "Préparées à temps" (en pourcentage)
 if 'obj_temps_lundi' not in st.session_state:
     st.session_state.obj_temps_lundi = 80.0
 if 'obj_temps_autre' not in st.session_state:
     st.session_state.obj_temps_autre = 90.0
+if 'obj_prod' not in st.session_state:
+    st.session_state.obj_prod = 18.0
 
 # --- 2. IMPORTATION DU CSV ---
 st.sidebar.header("📁 Données WMS / CSV")
@@ -164,7 +164,7 @@ if uploaded_file is not None:
                 y=['Colis'], x=[max_colis], orientation='h', marker_color='#d3d3d3', hoverinfo='skip'
             ))
             fig_record.add_trace(go.Bar(
-                y=['Colis'], x=[val_colis], orientation='h', marker_color='#2e7d32', hoverinfo='skip'
+                y=['Colis'], x=[val_colis], orientation='h', marker_color='#1a4d2e', hoverinfo='skip'
             ))
             fig_record.update_layout(
                 barmode='overlay',
@@ -223,9 +223,9 @@ if uploaded_file is not None:
             
             oc1, oc2 = st.columns(2)
             with oc1:
-                st.session_state.obj_temps_lundi = st.number_input("Obj. Lundi (%)", value=st.session_state.obj_temps_lundi, step=1.0)
+                st.number_input("Obj. Lundi (%)", step=1.0, key='obj_temps_lundi')
             with oc2:
-                st.session_state.obj_temps_autre = st.number_input("Obj. Autre (%)", value=st.session_state.obj_temps_autre, step=1.0)
+                st.number_input("Obj. Autre (%)", step=1.0, key='obj_temps_autre')
 
             is_temps_ok = val_taux_pct >= obj_temps_actif
             gauge_bar_color = "#2e7d32" if is_temps_ok else "#8b0000"
@@ -320,8 +320,8 @@ if uploaded_file is not None:
             sub_c_inputs, sub_c_chart = st.columns([1.1, 1])
 
             with sub_c_inputs:
-                st.session_state.obj_delai_lundi = st.number_input("Obj. Lundi (<)", value=st.session_state.obj_delai_lundi, step=0.05)
-                st.session_state.obj_delai_autre = st.number_input("Obj. Autre (<)", value=st.session_state.obj_delai_autre, step=0.05)
+                st.number_input("Obj. Lundi (<)", step=0.05, key='obj_delai_lundi')
+                st.number_input("Obj. Autre (<)", step=0.05, key='obj_delai_autre')
 
                 is_delai_ok = val_delai_num <= obj_delai_actif
                 status_delai_txt = "✅ OK" if is_delai_ok else "❌ Dépassé"
@@ -366,7 +366,8 @@ if uploaded_file is not None:
     with mid_c1:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📊 Productivité P2 - 15 Derniers Jours</div>", unsafe_allow_html=True)
-            obj_prod = st.number_input("🎯 Objectif Productivité P2 (saisie manuelle)", value=18.0, step=0.5)
+            st.number_input("🎯 Objectif Productivité P2 (saisie manuelle)", step=0.5, key='obj_prod')
+            obj_prod = st.session_state.obj_prod
 
             df_hist_p2 = df.tail(15).copy()
             if not df_hist_p2.empty:
@@ -474,20 +475,20 @@ if uploaded_file is not None:
     with bot_c1:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🎯 Objectif Colis du Jour</div>", unsafe_allow_html=True)
-            st.session_state.obj_colis_val = st.text_input("Saisir l'objectif de colis du jour", value=st.session_state.obj_colis_val)
+            st.text_input("Saisir l'objectif de colis du jour", key='obj_colis_val', label_visibility="collapsed")
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🔥 Défi Collectif & Focus du Jour</div>", unsafe_allow_html=True)
-            st.session_state.defi_val = st.text_area("Saisir le défi collectif", value=st.session_state.defi_val)
+            st.text_area("Saisir le défi collectif", key='defi_val', label_visibility="collapsed")
 
     with bot_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>✨ Point Positif & Amélioration de la Veille</div>", unsafe_allow_html=True)
-            st.session_state.amelioration_val = st.text_area("À maintenir ou corriger", value=st.session_state.amelioration_val)
+            st.text_area("À maintenir ou corriger", key='amelioration_val', label_visibility="collapsed")
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🛡️ Encart Qualité & Incidents</div>", unsafe_allow_html=True)
-            st.session_state.qualite_val = st.text_area("Notes qualité", value=st.session_state.qualite_val)
+            st.text_area("Notes qualité", key='qualite_val', label_visibility="collapsed")
 
     st.markdown('</div>', unsafe_allow_html=True)  # Fin du fond de section Jour
 
