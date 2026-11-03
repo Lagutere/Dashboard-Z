@@ -42,11 +42,17 @@ if 'amelioration_val' not in st.session_state:
 if 'qualite_val' not in st.session_state:
     st.session_state.qualite_val = "RAS ce matin. Vigilance sur les sacs percés."
 
-# Objectifs de délai d'expédition persistants
+# Objectifs persistants pour le délai d'expédition
 if 'obj_delai_lundi' not in st.session_state:
     st.session_state.obj_delai_lundi = 1.35
 if 'obj_delai_autre' not in st.session_state:
     st.session_state.obj_delai_autre = 0.80
+
+# Objectifs persistants pour "Préparées à temps" (en pourcentage, ex: 90.0%)
+if 'obj_temps_lundi' not in st.session_state:
+    st.session_state.obj_temps_lundi = 90.0
+if 'obj_temps_autre' not in st.session_state:
+    st.session_state.obj_temps_autre = 95.0
 
 # --- 2. IMPORTATION DU CSV ---
 st.sidebar.header("📁 Données WMS / CSV")
@@ -82,7 +88,10 @@ if uploaded_file is not None:
     # Détermination du jour de la semaine (0 = Lundi, etc.)
     day_of_week = pd.to_datetime(selected_date).dayofweek
     is_lundi = (day_of_week == 0)
-    obj_actif = st.session_state.obj_delai_lundi if is_lundi else st.session_state.obj_delai_autre
+
+    # Objectifs actifs du jour
+    obj_delai_actif = st.session_state.obj_delai_lundi if is_lundi else st.session_state.obj_delai_autre
+    obj_temps_actif = st.session_state.obj_temps_lundi if is_lundi else st.session_state.obj_temps_autre
 
     # --- 3. MISE EN PAGE PRINCIPALE : 2 COLONNES ---
     col_left, col_right = st.columns([1.3, 1])
@@ -116,25 +125,40 @@ if uploaded_file is not None:
                 st.markdown(f"<h1 style='color: {bg_header}; text-align: center; font-size: 2.2em; margin: 0;'>{val_colis:,.0f}</h1>", unsafe_allow_html=True)
                 st.markdown(f"<p style='text-align: center; color: #666; margin: 5px 0 0 0;'>Max historique : {max_colis:,.0f}</p>", unsafe_allow_html=True)
 
-        # Encart Taux de service (Jauge demi-cercle)
+        # Encart Préparées à Temps (Avec objectifs Lundi / Autre & Coloration dynamique)
         with c2:
             with st.container(border=True):
                 st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; text-align: center; margin-bottom: 5px;'>⏱️ Préparées à Temps</div>", unsafe_allow_html=True)
+                
+                ot1, ot2 = st.columns(2)
+                with ot1:
+                    st.session_state.obj_temps_lundi = st.number_input("Obj. Lundi (%)", value=st.session_state.obj_temps_lundi, step=1.0)
+                with ot2:
+                    st.session_state.obj_temps_autre = st.number_input("Obj. Autre (%)", value=st.session_state.obj_temps_autre, step=1.0)
+
+                is_temps_ok = val_taux_pct >= obj_temps_actif
+                gauge_bar_color = "#2e7d32" if is_temps_ok else "#8b0000" # Vert ou Rouge foncé
+
                 fig_gauge = go.Figure(go.Indicator(
                     mode = "gauge+number",
                     value = val_taux_pct,
-                    number = {'suffix': "%", 'font': {'color': '#1a4d2e', 'size': 22}},
+                    number = {'suffix': "%", 'font': {'color': gauge_bar_color, 'size': 22}},
                     gauge = {
                         'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
-                        'bar': {'color': "#1a4d2e"},
+                        'bar': {'color': gauge_bar_color},
                         'bgcolor': "white",
                         'steps': [
-                            {'range': [0, 80], 'color': '#ffebee'},
-                            {'range': [80, 100], 'color': '#e8f5e9'}
+                            {'range': [0, obj_temps_actif], 'color': '#ffebee'},
+                            {'range': [obj_temps_actif, 100], 'color': '#e8f5e9'}
                         ],
+                        'threshold': {
+                            'line': {'color': "black", 'width': 3},
+                            'thickness': 0.75,
+                            'value': obj_temps_actif
+                        }
                     }
                 ))
-                fig_gauge.update_layout(height=135, margin=dict(t=5, b=5, l=10, r=10))
+                fig_gauge.update_layout(height=110, margin=dict(t=5, b=5, l=10, r=10))
                 st.plotly_chart(fig_gauge, use_container_width=True)
 
         # Encart Productivité P2 (Arrondi à 1 chiffre après la virgule)
@@ -146,7 +170,7 @@ if uploaded_file is not None:
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>⚡ Productivité P2 & Objectif</div>", unsafe_allow_html=True)
             obj_prod = st.number_input("🎯 Objectif Productivité P2 (saisie manuelle)", value=15.0, step=0.5)
             is_prod_ok = val_prod >= obj_prod
-            prod_color = "#2e7d32" if is_prod_ok else "#c62828"
+            prod_color = "#2e7d32" if is_prod_ok else "#8b0000"
             prod_bg = "#e8f5e9" if is_prod_ok else "#ffebee"
             status_text = "✅ OK" if is_prod_ok else "❌ À améliorer"
 
@@ -179,7 +203,7 @@ if uploaded_file is not None:
             with col_o2:
                 st.session_state.obj_delai_autre = st.number_input("🎯 Obj. Autre jour (<)", value=st.session_state.obj_delai_autre, step=0.05)
 
-            is_delai_ok = val_delai_num <= obj_actif
+            is_delai_ok = val_delai_num <= obj_delai_actif
             bar_color = "#2e7d32" if is_delai_ok else "#8b0000"
 
             fig_bar = go.Figure()
@@ -195,13 +219,12 @@ if uploaded_file is not None:
                 y=['Délai Réel'],
                 orientation='h',
                 marker_color=bar_color,
-                text=f"{val_delai_num:.1f} (Obj: < {obj_actif})",
+                text=f"{val_delai_num:.1f} (Obj: < {obj_delai_actif})",
                 textposition='inside',
                 insidetextanchor='middle',
                 textfont=dict(color='white', size=14, family='Arial Black')
             ))
             
-            # Ajout de l'annotation flèche dorée + coupe 🏆 si c'est le record min
             if is_record_delai and val_delai_num > 0:
                 fig_bar.add_annotation(
                     x=val_delai_num, y='Délai Réel',
@@ -220,7 +243,7 @@ if uploaded_file is not None:
                 barmode='overlay',
                 xaxis=dict(range=[0, max(2.5, val_delai_num * 1.2)], showgrid=False, zeroline=False),
                 yaxis=dict(showgrid=False),
-                height=95,
+                height=80,
                 margin=dict(t=25, b=5, l=5, r=5),
                 plot_bgcolor='white',
                 paper_bgcolor='white',
@@ -232,7 +255,7 @@ if uploaded_file is not None:
             record_txt = " 🏆 (Record Min Historique !)" if is_record_delai else ""
             st.markdown(f"**Délai Réel :** {val_delai_num:.1f} ({status_delai_txt}){record_txt}")
 
-        # --- ENCART RESTANT À FAIRE (DONUT CHART AVEC "CDE" ET ROUGE PÂLE) ---
+        # --- ENCART RESTANT À FAIRE (DONUT CHART) ---
         col_n = 'Colis Expédiés physiquement' if 'Colis Expédiés physiquement' in df.columns else df.columns[13]
         col_p = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
 
@@ -261,7 +284,48 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-        # --- GRAPHIQUE HEURE PAR HEURE (MOYENNES TRANSPARENTES SANS CHEVAUCHEMENT + RECORD JAUNE) ---
+        # --- GRAPHIQUE HISTOGRAMME PRODUCTIVITÉ P2 (15 DERNIERS JOURS) ---
+        with st.container(border=True):
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📊 Productivité P2 - 15 Derniers Jours</div>", unsafe_allow_html=True)
+            
+            df_hist_p2 = df.tail(15).copy()
+            if not df_hist_p2.empty:
+                dates_p2 = df_hist_p2['Date_parsed'].dt.strftime('%d/%m').fillna(df_hist_p2['Date'].astype(str))
+                vals_p2 = pd.to_numeric(df_hist_p2[col_prod_p2], errors='coerce').fillna(0)
+
+                # Couleurs : Vert foncé Ziggy par défaut, et pour le jour sélectionné : vert (#2e7d32) si >= obj_prod, sinon rouge foncé (#8b0000)
+                colors_p2 = []
+                for idx, row in df_hist_p2.iterrows():
+                    d_parsed = row['Date_parsed']
+                    is_selected_day = (not pd.isna(d_parsed) and d_parsed.date() == selected_date) or (str(row['Date']) == str(row_veille.get('Date', '')))
+                    v_val = pd.to_numeric(row.get(col_prod_p2, 0), errors='coerce')
+                    if pd.isna(v_val): v_val = 0.0
+
+                    if is_selected_day:
+                        colors_p2.write('#2e7d32' if v_val >= obj_prod else '#8b0000')
+                    else:
+                        colors_p2.append('#1a4d2e')
+
+                fig_p2 = go.Figure()
+                fig_p2.add_trace(go.Bar(
+                    x=dates_p2,
+                    y=vals_p2,
+                    text=vals_p2.round(1),
+                    textposition='outside',
+                    marker_color=colors_p2
+                ))
+                fig_p2.update_layout(
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    height=250,
+                    margin=dict(t=20, b=20, l=20, r=20),
+                    showlegend=False
+                )
+                st.plotly_chart(fig_p2, use_container_width=True)
+            else:
+                st.info("Données insuffisantes pour l'historique de productivité P2.")
+
+        # --- GRAPHIQUE HEURE PAR HEURE (MOYENNES TRANSPARENTES + RECORD JAUNE) ---
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
             
@@ -273,7 +337,6 @@ if uploaded_file is not None:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
                 hours_labels = [str(h).split()[0] for h in hour_cols]
 
-                # 1. Moyenne 30 jours ouvrés hors zéros
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
                 df_working = df[df['day_of_week'] < 5].tail(30)
                 col_target = 'Colis/h préparés' if 'Colis/h préparés' in df.columns else df.columns[33]
@@ -281,12 +344,10 @@ if uploaded_file is not None:
                 mean_filtered_30 = s_vals[s_vals > 0].mean()
                 if pd.isna(mean_filtered_30): mean_filtered_30 = 146.0
 
-                # 2. Moyenne du jour sélectionné (0 chiffre après la virgule)
                 mean_today = round(row_hours.mean())
 
                 fig = go.Figure()
                 
-                # Ligne de la moyenne des 30j ouvrés (vert transparent)
                 fig.add_trace(go.Scatter(
                     x=hours_labels,
                     y=[mean_filtered_30] * len(hours_labels),
@@ -295,7 +356,6 @@ if uploaded_file is not None:
                     line=dict(color='rgba(46, 125, 50, 0.4)', width=2, dash='dash')
                 ))
 
-                # Ligne de la moyenne du jour (bleu transparent)
                 fig.add_trace(go.Scatter(
                     x=hours_labels,
                     y=[mean_today] * len(hours_labels),
@@ -304,7 +364,6 @@ if uploaded_file is not None:
                     line=dict(color='rgba(0, 0, 139, 0.4)', width=3, dash='solid')
                 ))
 
-                # Texte de la moyenne 30j (vert transparent, à droite, décalé en Y pour éviter le chevauchement)
                 fig.add_annotation(
                     x=hours_labels[-1], y=mean_filtered_30,
                     text=f"Moy. 30j: {mean_filtered_30:.0f}",
@@ -314,7 +373,6 @@ if uploaded_file is not None:
                     font=dict(color="rgba(46, 125, 50, 0.8)", size=11, family="Arial Black")
                 )
 
-                # Texte de la moyenne du jour (bleu transparent, à droite, décalé un peu plus haut ou plus bas)
                 fig.add_annotation(
                     x=hours_labels[-1], y=mean_today,
                     text=f"Moy. Jour: {mean_today:.0f}",
@@ -324,7 +382,6 @@ if uploaded_file is not None:
                     font=dict(color="rgba(0, 0, 139, 0.8)", size=11, family="Arial Black")
                 )
 
-                # 3. Record historique absolu sur les colonnes horaires pour colorer en jaune
                 max_historical_hour = df[hour_cols].apply(pd.to_numeric, errors='coerce').max().max()
                 if pd.isna(max_historical_hour): max_historical_hour = row_hours.max()
 
@@ -342,7 +399,7 @@ if uploaded_file is not None:
                 fig.update_layout(
                     plot_bgcolor='white',
                     paper_bgcolor='white',
-                    height=300,
+                    height=290,
                     margin=dict(t=25, b=20, l=20, r=70),
                     showlegend=True,
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
