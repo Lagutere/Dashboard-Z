@@ -48,7 +48,7 @@ if 'obj_delai_lundi' not in st.session_state:
 if 'obj_delai_autre' not in st.session_state:
     st.session_state.obj_delai_autre = 0.80
 
-# Objectifs persistants pour "Préparées à temps" (en pourcentage, ex: 90.0%)
+# Objectifs persistants pour "Préparées à temps" (en pourcentage)
 if 'obj_temps_lundi' not in st.session_state:
     st.session_state.obj_temps_lundi = 90.0
 if 'obj_temps_autre' not in st.session_state:
@@ -137,7 +137,7 @@ if uploaded_file is not None:
                     st.session_state.obj_temps_autre = st.number_input("Obj. Autre (%)", value=st.session_state.obj_temps_autre, step=1.0)
 
                 is_temps_ok = val_taux_pct >= obj_temps_actif
-                gauge_bar_color = "#2e7d32" if is_temps_ok else "#8b0000" # Vert ou Rouge foncé
+                gauge_bar_color = "#2e7d32" if is_temps_ok else "#8b0000"
 
                 fig_gauge = go.Figure(go.Indicator(
                     mode = "gauge+number",
@@ -293,7 +293,6 @@ if uploaded_file is not None:
                 dates_p2 = df_hist_p2['Date_parsed'].dt.strftime('%d/%m').fillna(df_hist_p2['Date'].astype(str))
                 vals_p2 = pd.to_numeric(df_hist_p2[col_prod_p2], errors='coerce').fillna(0)
 
-                # Couleurs : Vert foncé Ziggy par défaut, et pour le jour sélectionné : vert (#2e7d32) si >= obj_prod, sinon rouge foncé (#8b0000)
                 colors_p2 = []
                 for idx, row in df_hist_p2.iterrows():
                     d_parsed = row['Date_parsed']
@@ -302,7 +301,7 @@ if uploaded_file is not None:
                     if pd.isna(v_val): v_val = 0.0
 
                     if is_selected_day:
-                        colors_p2.write('#2e7d32' if v_val >= obj_prod else '#8b0000')
+                        colors_p2.append('#2e7d32' if v_val >= obj_prod else '#8b0000')
                     else:
                         colors_p2.append('#1a4d2e')
 
