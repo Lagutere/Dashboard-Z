@@ -166,34 +166,31 @@ if uploaded_file is not None:
             with d2:
                 st.metric("📦 Reste à faire (RAF)", val_raf_str)
 
-        # --- GRAPHIQUE HEURE PAR HEURE (AVEC LIGNE MOYENNE 30 JOURS) ---
+        # --- GRAPHIQUE HEURE PAR HEURE (AVEC LIGNE DE MOYENNE GLOBALE 30 JOURS) ---
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyenne 30j)</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyenne Globale 30j)</div>", unsafe_allow_html=True)
             
             hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
             if not hour_cols and len(df.columns) > 106:
                 hour_cols = df.columns[95:107]
 
             if len(hour_cols) > 0:
-                # Données du jour sélectionné
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
                 hours_labels = [str(h).split()[0] for h in hour_cols]
 
-                # Calcul de la moyenne des 30 derniers jours (cases CU à DD / hour_cols)
+                # Calcul de la moyenne globale par heure sur les 30 derniers jours
                 df_last_30 = df.tail(30)
-                mean_hours_30 = df_last_30[hour_cols].apply(pd.to_numeric, errors='coerce').mean().fillna(0)
+                mean_hourly_30 = df_last_30[hour_cols].apply(pd.to_numeric, errors='coerce').mean().mean()
 
-                # Création du graphique combiné (Barres du jour + Ligne moyenne 30j)
                 fig = go.Figure()
 
-                # 1. Ligne de la moyenne des 30 derniers jours (derrière les barres)
+                # 1. Ligne droite horizontale représentant la moyenne globale des 30 derniers jours
                 fig.add_trace(go.Scatter(
                     x=hours_labels,
-                    y=mean_hours_30.values,
-                    mode='lines+markers',
-                    name='Moyenne 30 derniers jours',
-                    line=dict(color='rgba(26, 77, 46, 0.5)', width=3, dash='solid'),
-                    marker=dict(color='rgba(26, 77, 46, 0.6)', size=6)
+                    y=[mean_hourly_30] * len(hours_labels),
+                    mode='lines',
+                    name='Moyenne globale (30j)',
+                    line=dict(color='rgba(26, 77, 46, 0.6)', width=3, dash='dash')
                 ))
 
                 # 2. Histogramme des colis du jour
@@ -209,7 +206,6 @@ if uploaded_file is not None:
                     marker_color=bar_colors
                 ))
 
-                # Mise en page du graphique
                 fig.update_layout(
                     plot_bgcolor='white',
                     paper_bgcolor='white',
