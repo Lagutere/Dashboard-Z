@@ -100,7 +100,7 @@ if uploaded_file is not None:
 
     top_c1, top_c2, top_c3 = st.columns(3)
 
-    # COLONNE 1 : Colis Expédiés + Reste à Fabriquer (Camembert) en dessous (Hauteur ajustée)
+    # COLONNE 1 : Colis Expédiés + Reste à Fabriquer (Camembert) en dessous
     with top_c1:
         col_colis_exp = 'COLIS préparés (Shipment)' if 'COLIS préparés (Shipment)' in df.columns else df.columns[11]
         val_colis = pd.to_numeric(row_veille.get(col_colis_exp, 0), errors='coerce')
@@ -140,18 +140,24 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps (Avec moyenne des derniers jours sous le score)
+    # COLONNE 2 : Préparées à Temps (Moyenne des 30 derniers jours ouvrés de la colonne AF)
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     if pd.isna(val_taux_raw): val_taux_raw = 0
     val_taux_pct = val_taux_raw * 100 if val_taux_raw <= 2.0 else val_taux_raw
     val_gauge_display = min(100.0, val_taux_pct)
 
-    # Calcul de la moyenne des derniers jours (sur la colonne du KPI)
-    s_all_taux = pd.to_numeric(df[col_taux_temps], errors='coerce')
-    s_all_taux_pct = s_all_taux.apply(lambda x: x * 100 if x <= 2.0 else x)
-    mean_taux_days = s_all_taux_pct[s_all_taux_pct > 0].mean()
-    if pd.isna(mean_taux_days): mean_taux_days = val_taux_pct
+    # Identification de la colonne AF (index 31) ou alternative
+    col_af_name = df.columns[31] if len(df.columns) > 31 else col_taux_temps
+    
+    # Filtrer les 30 derniers jours ouvrés (sans week-ends, > 0)
+    df['temp_day_of_week'] = df['Date_parsed'].dt.dayofweek
+    df_working_30 = df[df['temp_day_of_week'] < 5].tail(30)
+    
+    s_af_days = pd.to_numeric(df_working_30[col_af_name], errors='coerce')
+    s_af_days_pct = s_af_days.apply(lambda x: x * 100 if x <= 2.0 else x)
+    mean_af_days = s_af_days_pct[s_af_days_pct > 0].mean()
+    if pd.isna(mean_af_days): mean_af_days = val_taux_pct
 
     with top_c2:
         with st.container(border=True):
@@ -170,7 +176,7 @@ if uploaded_file is not None:
                 mode = "gauge+number",
                 value = val_gauge_display,
                 number = {'suffix': "%", 'valueformat': ".1f" if val_taux_pct > 100 else ".0f", 'font': {'color': gauge_bar_color, 'size': 24}},
-                title = {'text': f"<span style='font-size:11px; color:gray;'>Réel : {val_taux_pct:.1f}% | Moy. Jours : {mean_taux_days:.1f}%</span>"},
+                title = {'text': f"<span style='font-size:11px; color:gray;'>Réel : {val_taux_pct:.1f}% | Moy. Jours : {mean_af_days:.1f}%</span>"},
                 gauge = {
                     'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
                     'bar': {'color': gauge_bar_color},
@@ -234,7 +240,6 @@ if uploaded_file is not None:
     val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
     if pd.isna(val_delai_num): val_delai_num = 0.0
 
-    col_af_name = df.columns[31] if len(df.columns) > 31 else None
     min_af_val = None
     if col_af_name is not None and col_af_name in df.columns:
         s_af = pd.to_numeric(df[col_af_name], errors='coerce')
