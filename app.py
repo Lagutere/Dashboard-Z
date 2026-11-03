@@ -2,6 +2,37 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import json
+import os
+
+# --- FICHIER DE SAUVEGARDE PERSISTANTE ---
+CONFIG_FILE = "config_ziggy.json"
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def save_config():
+    config = {
+        'obj_colis_val': st.session_state.get('obj_colis_val', "1500"),
+        'defi_val': st.session_state.get('defi_val', "Zéro erreur de picking sur les références sensibles + Fluidité sur l'emballage."),
+        'amelioration_val': st.session_state.get('amelioration_val', "Positif : Bonne cadence globale entre 8h et 11h. Amélioration : Réduire le temps de pause."),
+        'qualite_val': st.session_state.get('qualite_val', "RAS ce matin. Vigilance sur les sacs percés."),
+        'obj_delai_lundi': st.session_state.get('obj_delai_lundi', 1.40),
+        'obj_delai_autre': st.session_state.get('obj_delai_autre', 0.80),
+        'obj_temps_lundi': st.session_state.get('obj_temps_lundi', 80.0),
+        'obj_temps_autre': st.session_state.get('obj_temps_autre', 90.0),
+        'obj_prod': st.session_state.get('obj_prod', 18.0)
+    }
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
+
+saved_data = load_config()
 
 # --- CONFIGURATION DE LA PAGE & DESIGN ZIGGY ---
 st.set_page_config(page_title="Dashboard Logistique - Ziggy", layout="wide")
@@ -72,27 +103,30 @@ st.markdown("""
 # Titre dans un bandeau de couleur
 st.markdown('<div class="main-title-banner">🐾 Dashboard Logistique & Préparation - Ziggy</div>', unsafe_allow_html=True)
 
-# --- 1. INITIALISATION DE LA MÉMOIRE (SESSION STATE) ---
+# --- 1. INITIALISATION DE LA MÉMOIRE (SESSION STATE AVEC CHARGEMENT FICHIER) ---
 if 'obj_colis_val' not in st.session_state:
-    st.session_state.obj_colis_val = "1500"
+    st.session_state.obj_colis_val = saved_data.get('obj_colis_val', "1500")
 if 'defi_val' not in st.session_state:
-    st.session_state.defi_val = "Zéro erreur de picking sur les références sensibles + Fluidité sur l'emballage."
+    st.session_state.defi_val = saved_data.get('defi_val', "Zéro erreur de picking sur les références sensibles + Fluidité sur l'emballage.")
 if 'amelioration_val' not in st.session_state:
-    st.session_state.amelioration_val = "Positif : Bonne cadence globale entre 8h et 11h. Amélioration : Réduire le temps de pause."
+    st.session_state.amelioration_val = saved_data.get('amelioration_val', "Positif : Bonne cadence globale entre 8h et 11h. Amélioration : Réduire le temps de pause.")
 if 'qualite_val' not in st.session_state:
-    st.session_state.qualite_val = "RAS ce matin. Vigilance sur les sacs percés."
+    st.session_state.qualite_val = saved_data.get('qualite_val', "RAS ce matin. Vigilance sur les sacs percés.")
 
-# Objectifs persistants pour le délai d'expédition et taux de service
 if 'obj_delai_lundi' not in st.session_state:
-    st.session_state.obj_delai_lundi = 1.40
+    st.session_state.obj_delai_lundi = saved_data.get('obj_delai_lundi', 1.40)
 if 'obj_delai_autre' not in st.session_state:
-    st.session_state.obj_delai_autre = 0.80
+    st.session_state.obj_delai_autre = saved_data.get('obj_delai_autre', 0.80)
 if 'obj_temps_lundi' not in st.session_state:
-    st.session_state.obj_temps_lundi = 80.0
+    st.session_state.obj_temps_lundi = saved_data.get('obj_temps_lundi', 80.0)
 if 'obj_temps_autre' not in st.session_state:
-    st.session_state.obj_temps_autre = 90.0
+    st.session_state.obj_temps_autre = saved_data.get('obj_temps_autre', 90.0)
 if 'obj_prod' not in st.session_state:
-    st.session_state.obj_prod = 18.0
+    st.session_state.obj_prod = saved_data.get('obj_prod', 18.0)
+
+# --- CALLBACK DE SAUVEGARDE AUTOMATIQUE ---
+def update_config():
+    save_config()
 
 # --- 2. IMPORTATION DU CSV ---
 st.sidebar.header("📁 Données WMS / CSV")
@@ -223,9 +257,9 @@ if uploaded_file is not None:
             
             oc1, oc2 = st.columns(2)
             with oc1:
-                st.number_input("Obj. Lundi (%)", step=1.0, key='obj_temps_lundi')
+                st.number_input("Obj. Lundi (%)", step=1.0, key='obj_temps_lundi', on_change=update_config)
             with oc2:
-                st.number_input("Obj. Autre (%)", step=1.0, key='obj_temps_autre')
+                st.number_input("Obj. Autre (%)", step=1.0, key='obj_temps_autre', on_change=update_config)
 
             is_temps_ok = val_taux_pct >= obj_temps_actif
             gauge_bar_color = "#2e7d32" if is_temps_ok else "#8b0000"
@@ -320,8 +354,8 @@ if uploaded_file is not None:
             sub_c_inputs, sub_c_chart = st.columns([1.1, 1])
 
             with sub_c_inputs:
-                st.number_input("Obj. Lundi (<)", step=0.05, key='obj_delai_lundi')
-                st.number_input("Obj. Autre (<)", step=0.05, key='obj_delai_autre')
+                st.number_input("Obj. Lundi (<)", step=0.05, key='obj_delai_lundi', on_change=update_config)
+                st.number_input("Obj. Autre (<)", step=0.05, key='obj_delai_autre', on_change=update_config)
 
                 is_delai_ok = val_delai_num <= obj_delai_actif
                 status_delai_txt = "✅ OK" if is_delai_ok else "❌ Dépassé"
@@ -366,7 +400,7 @@ if uploaded_file is not None:
     with mid_c1:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📊 Productivité P2 - 15 Derniers Jours</div>", unsafe_allow_html=True)
-            st.number_input("🎯 Objectif Productivité P2 (saisie manuelle)", step=0.5, key='obj_prod')
+            st.number_input("🎯 Objectif Productivité P2 (saisie manuelle)", step=0.5, key='obj_prod', on_change=update_config)
             obj_prod = st.session_state.obj_prod
 
             df_hist_p2 = df.tail(15).copy()
@@ -475,20 +509,20 @@ if uploaded_file is not None:
     with bot_c1:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🎯 Objectif Colis du Jour</div>", unsafe_allow_html=True)
-            st.text_input("Saisir l'objectif de colis du jour", key='obj_colis_val', label_visibility="collapsed")
+            st.text_input("Saisir l'objectif de colis du jour", key='obj_colis_val', label_visibility="collapsed", on_change=update_config)
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🔥 Défi Collectif & Focus du Jour</div>", unsafe_allow_html=True)
-            st.text_area("Saisir le défi collectif", key='defi_val', label_visibility="collapsed")
+            st.text_area("Saisir le défi collectif", key='defi_val', label_visibility="collapsed", on_change=update_config)
 
     with bot_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>✨ Point Positif & Amélioration de la Veille</div>", unsafe_allow_html=True)
-            st.text_area("À maintenir ou corriger", key='amelioration_val', label_visibility="collapsed")
+            st.text_area("À maintenir ou corriger", key='amelioration_val', label_visibility="collapsed", on_change=update_config)
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🛡️ Encart Qualité & Incidents</div>", unsafe_allow_html=True)
-            st.text_area("Notes qualité", key='qualite_val', label_visibility="collapsed")
+            st.text_area("Notes qualité", key='qualite_val', label_visibility="collapsed", on_change=update_config)
 
     st.markdown('</div>', unsafe_allow_html=True)  # Fin du fond de section Jour
 
