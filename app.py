@@ -26,14 +26,14 @@ st.markdown("""
 
     h2, h3 { color: #1a4d2e !important; font-family: 'Helvetica Neue', sans-serif; }
     
-    /* Style unifié des cartes avec bandeau intégré */
+    /* Style unifié des cartes avec bandeau collé en haut sans espace blanc */
     .card-container {
         border: 2px solid #1a4d2e;
         border-radius: 10px;
         background-color: #ffffff;
         margin-bottom: 20px;
-        overflow: hidden;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        overflow: hidden;
     }
     .card-header {
         background-color: #1a4d2e;
@@ -41,6 +41,7 @@ st.markdown("""
         padding: 12px 15px;
         font-weight: bold;
         font-size: 1.1em;
+        margin: 0;
     }
     .card-header-gold {
         background-color: #b8860b;
@@ -48,6 +49,7 @@ st.markdown("""
         padding: 12px 15px;
         font-weight: bold;
         font-size: 1.1em;
+        margin: 0;
     }
     .card-body {
         padding: 15px;
@@ -153,7 +155,7 @@ if uploaded_file is not None:
             st.plotly_chart(fig_gauge, use_container_width=True)
             st.markdown("</div></div>", unsafe_allow_html=True)
 
-        # Encart Productivité P2 (Unifié dans la carte)
+        # Encart Productivité P2
         col_prod_p2 = 'Productivité P2' if 'Productivité P2' in df.columns else [c for c in df.columns if 'Productivité P2' in str(c)][0]
         val_prod = pd.to_numeric(row_veille.get(col_prod_p2, 0), errors='coerce')
         if pd.isna(val_prod): val_prod = 0.0
@@ -180,7 +182,7 @@ if uploaded_file is not None:
             </div>
         """, unsafe_allow_html=True)
 
-        # Encart Délais & RAF (RAF formaté avec 0 chiffre après la virgule)
+        # Encart Délais & RAF
         col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
         col_raf = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
         
