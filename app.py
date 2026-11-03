@@ -50,9 +50,9 @@ if 'obj_delai_autre' not in st.session_state:
 
 # Objectifs persistants pour "Préparées à temps" (en pourcentage)
 if 'obj_temps_lundi' not in st.session_state:
-    st.session_state.obj_temps_lundi = 90.0
+    st.session_state.obj_temps_lundi = 80.0
 if 'obj_temps_autre' not in st.session_state:
-    st.session_state.obj_temps_autre = 95.0
+    st.session_state.obj_temps_autre = 90.0
 
 # --- 2. IMPORTATION DU CSV ---
 st.sidebar.header("📁 Données WMS / CSV")
@@ -141,9 +141,10 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps (Demi-jauge + Objectifs empilés + Mini-histo % de J-3 à J+1)
+    # COLONNE 2 : Préparées à Temps (Agrandie avec J-3 à J+1 en % corrects)
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
+    if pd.isna(val_taux_raw): val_taux_raw = 0
     val_taux_pct = val_taux_raw * 100 if val_taux_raw <= 1 else val_taux_raw
 
     with top_c2:
@@ -173,29 +174,65 @@ if uploaded_file is not None:
             fig_gauge.update_layout(height=85, margin=dict(t=0, b=0, l=5, r=5))
             st.plotly_chart(fig_gauge, use_container_width=True)
 
-            # Mini histogramme J-3 à J+1 (colonnes U à Y / index 18 à 22 ou colonnes explicitées J-3, J-2, J-1, J+0, J+1)
-            j_cols = [c for c in df.columns if c in ['J-3', 'J-2', 'J-1', 'J+0', 'J+1'] or any(k in str(c) for k in ['J-3', 'J-2', 'J-1', 'J+0', 'J+1'])]
-            if not j_cols and len(df.columns) > 23:
-                j_cols = df.columns[19:24]  # Correspond généralement à J-3, J-2, J-1, J+0, J+1
+            # --- Mini histogramme de J-3 à J+1 (Recherche exacte des colonnes U à Y) ---
+            target_j_labels = ['J-3', 'J-2', 'J-1', 'J+0', 'J+1']
+            found_cols = []
+            for tj in target_j_labels:
+                match = [c for c in df.columns if tj.lower() in str(c).lower().replace(' ', '')]
+                if match:
+                    found_cols.append(match[0])
+                else:
+                    found_cols.append(None)
 
-            if len(j_cols) > 0:
-                raw_j_vals = row_veille[j_cols].apply(pd.to_numeric, errors='coerce').fillna(0).values
-                # Conversion en % si les données sont des proportions entre 0 et 1
-                j_vals = [v * 100 if v <= 1 else v for v in raw_j_vals]
-                j_labels = ['J-3', 'J-2', 'J-1', 'J+0', 'J+1'] if len(j_cols) == 5 else [str(c).replace('.1', '') for c in j_cols]
-                
-                fig_j = go.Figure()
-                fig_j.add_trace(go.Bar(x=j_labels, y=[100]*len(j_labels), marker_color='#e0e0e0', hoverinfo='skip', name='Reste'))
-                fig_j.add_trace(go.Bar(x=j_labels, y=j_vals, marker_color='#1a4d2e', text=[f"{v:.0f}%" for v in j_vals], textposition='inside', name='Réalisé'))
-                fig_j.update_layout(
-                    barmode='overlay',
-                    height=100,
-                    margin=dict(t=5, b=5, l=5, r=5),
-                    showlegend=False,
-                    xaxis=dict(showgrid=False),
-                    yaxis=dict(range=[0, 100], showgrid=False, visible=False)
-                )
-                st.plotly_chart(fig_j, use_container_width=True)
+            # Fallback par index si les libellés exacts diffèrent légèrement (colonnes U à Y correspondent souvent aux indices 20 à 24)
+            if all(c is None for c in found_cols) and len(df.columns) > 24:
+                found_cols = [df.columns[20], df.columns[21], df.columns[22], df.columns[23], df.columns[24]]
+
+            j_vals = []
+            for col in found_cols:
+                if col is not None and col in row_veille:
+                    raw_v = pd.to_numeric(row_veille[col], errors='coerce')
+                    if pd.isna(raw_v): raw_v = 0.0
+                    # Conversion en % si la valeur est entre 0 et 1 (ex: 0.87 -> 87)
+                    pct_val = raw_v * 100 if raw_v <= 1 else raw_v
+                    j_vals.append(pct_val)
+                else:
+                    j_vals.append(0.0)
+
+            # Création du graphique empilé (Vert foncé pour la part réalisée, gris clair pour le complément jusqu'à 100%)
+            fig_j = go.Figure()
+            
+            # Barre grise de fond (100% total)
+            fig_j.add_trace(go.Bar(
+                x=target_j_labels, 
+                y=[100]*5, 
+                marker_color='#e0e0e0', 
+                hoverinfo='skip', 
+                showlegend=False
+            ))
+            
+            # Barre verte par-dessus (valeur réelle en %)
+            fig_j.add_trace(go.Bar(
+                x=target_j_labels, 
+                y=j_vals, 
+                marker_color='#1a4d2e', 
+                text=[f"{v:.0f}%" for v in j_vals], 
+                textposition='inside', 
+                insidetextanchor='middle',
+                textfont=dict(color='white', size=13, family='Arial Black'),
+                showlegend=False
+            ))
+
+            fig_j.update_layout(
+                barmode='overlay',
+                height=150,  # Agrandit l'encadré pour bien tout voir
+                margin=dict(t=10, b=10, l=10, r=10),
+                xaxis=dict(showgrid=False, tickfont=dict(size=12, family='Arial Black')),
+                yaxis=dict(range=[0, 100], showgrid=False, visible=False),
+                plot_bgcolor='white',
+                paper_bgcolor='white'
+            )
+            st.plotly_chart(fig_j, use_container_width=True)
 
     # COLONNE 3 : Délais d'Expédition
     col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
