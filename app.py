@@ -140,7 +140,7 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps
+    # COLONNE 2 : Préparées à Temps (Moyenne des 30 derniers jours ouvrés de la colonne AF)
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     if pd.isna(val_taux_raw): val_taux_raw = 0
@@ -297,7 +297,7 @@ if uploaded_file is not None:
 
 
     # ==========================================
-    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (CIBLAGE STRICT CU À DD & NUMÉRISÉ)
+    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE
     # ==========================================
     mid_c1, mid_c2 = st.columns(2)
 
@@ -337,38 +337,32 @@ if uploaded_file is not None:
                     line=dict(color="#8b008b", width=2, dash="solid"), layer="below"
                 )
                 fig_p2.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=340,
+                    plot_bgcolor='white', paper_bgcolor='white', height=270,
                     margin=dict(t=20, b=20, l=20, r=20), showlegend=False
                 )
                 st.plotly_chart(fig_p2, use_container_width=True)
             else:
                 st.info("Données insuffisantes pour l'historique de productivité P2.")
 
-    # 2. Cadence Heure par Heure (Strict CU à DD, converti proprement en numérique)
+    # 2. Cadence Heure par Heure (Remis comme avant)
     with mid_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
             
-            # Extraction stricte CU (98) à DD (107)
-            if len(df.columns) > 107:
-                hour_cols = list(df.columns[98:108])
-            else:
-                hour_cols = list(df.columns)
+            hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
+            if not hour_cols and len(df.columns) > 106:
+                hour_cols = df.columns[95:107]
 
             if len(hour_cols) > 0:
-                # Nettoyage et conversion numérique stricte de la ligne et de l'historique pour éviter les valeurs aberrantes
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
                 hours_labels = [str(h).split()[0] for h in hour_cols]
 
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
                 df_working = df[df['day_of_week'] < 5].tail(30)
-                
-                # Conversion numérique de tout le sous-dataframe des heures pour les 30 derniers jours ouvrés
-                df_working_hours = df_working[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
-                s_vals = df_working_hours.sum(axis=1)
-                mean_filtered_30 = s_vals[s_vals > 0].mean() / len(hour_cols) if len(hour_cols) > 0 else 0.0
-                if pd.isna(mean_filtered_30) or mean_filtered_30 == 0: 
-                    mean_filtered_30 = row_hours.mean()
+                col_target = 'Colis/h préparés' if 'Colis/h préparés' in df.columns else df.columns[33]
+                s_vals = pd.to_numeric(df_working[col_target], errors='coerce')
+                mean_filtered_30 = s_vals[s_vals > 0].mean()
+                if pd.isna(mean_filtered_30): mean_filtered_30 = 146.0
 
                 mean_today = round(row_hours.mean())
 
@@ -394,8 +388,8 @@ if uploaded_file is not None:
                     font=dict(color="rgba(0, 0, 139, 0.8)", size=11, family="Arial Black")
                 )
 
-                max_historical_hour = row_hours.max()
-                if pd.isna(max_historical_hour) or max_historical_hour == 0: max_historical_hour = 100
+                max_historical_hour = df[hour_cols].apply(pd.to_numeric, errors='coerce').max().max()
+                if pd.isna(max_historical_hour): max_historical_hour = row_hours.max()
 
                 bar_colors = ['#ffd700' if val >= max_historical_hour and val > 0 else '#1a4d2e' for val in row_hours.values]
 
@@ -404,13 +398,13 @@ if uploaded_file is not None:
                     text=row_hours.values, textposition='outside', marker_color=bar_colors
                 ))
                 fig.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=340,
+                    plot_bgcolor='white', paper_bgcolor='white', height=270,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("Colonnes CU à DD non détectées.")
+                st.info("Colonnes horaires non détectées.")
 
 
     # ==========================================
