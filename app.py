@@ -70,7 +70,7 @@ st.markdown("""
         margin-bottom: 30px;
     }
 
-    /* Titres avec fond surligné */
+    /* Titres avec fond surligné et gestion du logo chat intégré */
     .title-highlight-veille {
         background-color: rgba(26, 77, 46, 0.15);
         color: #1a4d2e;
@@ -171,7 +171,7 @@ if uploaded_file is not None:
     # BLOC 1 : BILAN & INDICATEURS DE LA VEILLE
     # ==========================================
     st.markdown('<div class="bg-section-veille">', unsafe_allow_html=True)
-    st.markdown('<div class="title-highlight-veille">📊 Bilan & Indicateurs de la Veille</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title-highlight-veille"><img src="https://raw.githubusercontent.com/TarikHub/assets/main/cat_ziggy.png" width="32" style="vertical-align: middle; margin-right: 8px;">Bilan & Indicateurs de la Veille</div>', unsafe_allow_html=True)
 
     top_c1, top_c2, top_c3 = st.columns(3)
 
@@ -502,7 +502,7 @@ if uploaded_file is not None:
     # BLOC 2 : PILOTAGE DU JOUR & ALIGNEMENT
     # ==========================================
     st.markdown('<div class="bg-section-jour">', unsafe_allow_html=True)
-    st.markdown('<div class="title-highlight-jour">🎯 Pilotage du Jour & Alignement</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title-highlight-jour"><img src="https://raw.githubusercontent.com/TarikHub/assets/main/cat_ziggy.png" width="32" style="vertical-align: middle; margin-right: 8px;">Pilotage du Jour & Alignement</div>', unsafe_allow_html=True)
 
     bot_c1, bot_c2 = st.columns(2)
 
