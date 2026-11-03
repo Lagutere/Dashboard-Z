@@ -24,6 +24,48 @@ st.markdown("""
         font-family: 'Helvetica Neue', sans-serif;
     }
 
+    /* Style des grands conteneurs de section */
+    .section-container-veille {
+        background-color: rgba(26, 77, 46, 0.04);
+        border: 1px solid rgba(26, 77, 46, 0.15);
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+    }
+
+    .section-container-jour {
+        background-color: rgba(64, 224, 208, 0.08);
+        border: 1px solid rgba(64, 224, 208, 0.3);
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+    }
+
+    /* Bandeaux de titres de section */
+    .section-title-veille {
+        background-color: #1a4d2e;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-size: 1.4em;
+        font-weight: bold;
+        margin-bottom: 20px;
+        font-family: 'Helvetica Neue', sans-serif;
+        display: inline-block;
+    }
+
+    .section-title-jour {
+        background-color: #20b2aa;
+        color: white;
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-size: 1.4em;
+        font-weight: bold;
+        margin-bottom: 20px;
+        font-family: 'Helvetica Neue', sans-serif;
+        display: inline-block;
+    }
+
     h2, h3 { color: #1a4d2e !important; font-family: 'Helvetica Neue', sans-serif; }
     .stButton>button { background-color: #1a4d2e; color: white; border-radius: 8px; }
     </style>
@@ -94,9 +136,10 @@ if uploaded_file is not None:
     obj_temps_actif = st.session_state.obj_temps_lundi if is_lundi else st.session_state.obj_temps_autre
 
     # ==========================================
-    # BLOC 1 : INDICATEURS DU HAUT (3 COLONNES)
+    # SECTION 1 : BILAN & INDICATEURS DE LA VEILLE (Vert canard transparent)
     # ==========================================
-    st.subheader("📊 Bilan & Indicateurs de la Veille")
+    st.markdown('<div class="section-title-veille">📊 Bilan & Indicateurs de la Veille</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-container-veille">', unsafe_allow_html=True)
 
     top_c1, top_c2, top_c3 = st.columns(3)
 
@@ -106,7 +149,7 @@ if uploaded_file is not None:
         val_colis = pd.to_numeric(row_veille.get(col_colis_exp, 0), errors='coerce')
         if pd.isna(val_colis): val_colis = 0
         max_colis = pd.to_numeric(df[col_colis_exp], errors='coerce').max()
-        if pd.isna(max_colis) or max_colis == 0: max_colis = 1646  # Valeur de secours si besoin
+        if pd.isna(max_colis) or max_colis == 0: max_colis = 1646
         
         is_record_colis = (val_colis >= max_colis) and (val_colis > 0)
 
@@ -118,13 +161,10 @@ if uploaded_file is not None:
             st.markdown(f"<h1 style='color: {bg_header}; text-align: center; font-size: 2.0em; margin: 0;'>{val_colis:,.0f}</h1>", unsafe_allow_html=True)
             st.markdown(f"<p style='text-align: right; color: #666; margin: 0 0 2px 0; font-size: 0.8em;'>Record : {max_colis:,.0f}</p>", unsafe_allow_html=True)
 
-            # Mini graphique horizontal (rectangle gris fond + rectangle vert superposition)
             fig_record = go.Figure()
-            # Fond gris (max historique)
             fig_record.add_trace(go.Bar(
                 y=['Colis'], x=[max_colis], orientation='h', marker_color='#d3d3d3', hoverinfo='skip'
             ))
-            # Réalisé (vert par-dessus)
             fig_record.add_trace(go.Bar(
                 y=['Colis'], x=[val_colis], orientation='h', marker_color='#2e7d32', hoverinfo='skip'
             ))
@@ -318,6 +358,8 @@ if uploaded_file is not None:
                 )
                 st.plotly_chart(fig_bar_vert, use_container_width=True)
 
+    st.markdown('</div>', unsafe_allow_html=True)  # Fin du conteneur Veille
+
 
     # ==========================================
     # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (HAUTEURS HARMONISÉES À 270)
@@ -434,30 +476,32 @@ if uploaded_file is not None:
 
 
     # ==========================================
-    # BLOC 3 : ENCADRÉS DE PILOTAGE DU JOUR (EN DESSOUS)
+    # SECTION 3 : PILOTAGE DU JOUR & ALIGNEMENT (Bleu turquoise transparent)
     # ==========================================
-    st.markdown("---")
-    st.subheader("🎯 Pilotage du Jour & Alignement")
+    st.markdown('<div class="section-title-jour">🎯 Pilotage du Jour & Alignement</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-container-jour">', unsafe_allow_html=True)
 
     bot_c1, bot_c2 = st.columns(2)
 
     with bot_c1:
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🎯 Objectif Colis du Jour</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #20b2aa; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🎯 Objectif Colis du Jour</div>", unsafe_allow_html=True)
             st.session_state.obj_colis_val = st.text_input("Saisir l'objectif de colis du jour", value=st.session_state.obj_colis_val)
 
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🔥 Défi Collectif & Focus du Jour</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #20b2aa; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🔥 Défi Collectif & Focus du Jour</div>", unsafe_allow_html=True)
             st.session_state.defi_val = st.text_area("Saisir le défi collectif", value=st.session_state.defi_val)
 
     with bot_c2:
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>✨ Point Positif & Amélioration de la Veille</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #20b2aa; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>✨ Point Positif & Amélioration de la Veille</div>", unsafe_allow_html=True)
             st.session_state.amelioration_val = st.text_area("À maintenir ou corriger", value=st.session_state.amelioration_val)
 
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🛡️ Encart Qualité & Incidents</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #20b2aa; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🛡️ Encart Qualité & Incidents</div>", unsafe_allow_html=True)
             st.session_state.qualite_val = st.text_area("Notes qualité", value=st.session_state.qualite_val)
+
+    st.markdown('</div>', unsafe_allow_html=True)  # Fin du conteneur Jour
 
     st.success("💡 **Conseil Point d'Équipe :** Utilisez cet écran à 8h30 pour fixer les caps avec l'équipe !")
 
