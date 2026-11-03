@@ -297,7 +297,7 @@ if uploaded_file is not None:
 
 
     # ==========================================
-    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (AGRANDI ET FILTRÉ 7H-16H)
+    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (CIBLAGE STRICT CU À DD)
     # ==========================================
     mid_c1, mid_c2 = st.columns(2)
 
@@ -344,25 +344,17 @@ if uploaded_file is not None:
             else:
                 st.info("Données insuffisantes pour l'historique de productivité P2.")
 
-    # 2. Cadence Heure par Heure (Agrandit à height=340 et filtré de 7h00 à 16h00 inclus)
+    # 2. Cadence Heure par Heure (Ciblage strict des colonnes CU à DD : indices 98 à 107)
     with mid_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
             
-            # Recherche des colonnes horaires et filtrage strict de 7h00 à 16h00
-            all_hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
-            if not all_hour_cols and len(df.columns) > 106:
-                all_hour_cols = list(df.columns[95:107])
-
-            # Filtrage pour ne garder que de 07:00 à 16:00 inclus
-            hour_cols = []
-            for c in all_hour_cols:
-                c_str = str(c)
-                for h in range(7, 17):
-                    h_str = f"{h:02d}:00"
-                    if h_str in c_str:
-                        hour_cols.append(c)
-                        break
+            # Extraction des colonnes CU (index 98) jusqu'à DD (index 107) inclus
+            if len(df.columns) > 107:
+                hour_cols = list(df.columns[98:108])
+            else:
+                # Fallback si le fichier a moins de 108 colonnes
+                hour_cols = [c for c in df.columns if any(h in str(c) for h in ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'])]
 
             if len(hour_cols) > 0:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
@@ -370,9 +362,10 @@ if uploaded_file is not None:
 
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
                 df_working = df[df['day_of_week'] < 5].tail(30)
-                col_target = 'Colis/h préparés' if 'Colis/h préparés' in df.columns else df.columns[33]
-                s_vals = pd.to_numeric(df_working[col_target], errors='coerce')
-                mean_filtered_30 = s_vals[s_vals > 0].mean()
+                
+                # Calcul de la moyenne 30j ouvrés sur les mêmes colonnes CU à DD
+                s_vals = df_working[hour_cols].apply(pd.to_numeric, errors='coerce').sum(axis=1)
+                mean_filtered_30 = s_vals[s_vals > 0].mean() / len(hour_cols) if len(hour_cols) > 0 else 146.0
                 if pd.isna(mean_filtered_30): mean_filtered_30 = 146.0
 
                 mean_today = round(row_hours.mean())
@@ -415,7 +408,7 @@ if uploaded_file is not None:
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("Colonnes horaires de 7h00 à 16h00 non détectées.")
+                st.info("Colonnes CU à DD non détectées.")
 
 
     # ==========================================
@@ -444,7 +437,7 @@ if uploaded_file is not None:
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🛡️ Encart Qualité & Incidents</div>", unsafe_allow_html=True)
             st.session_state.qualite_val = st.text_area("Notes qualité", value=st.session_state.qualite_val)
 
-    
+    st.success("💡 **Conseil Point d'Équipe :** Utilisez cet écran à 8h30 pour fixer les caps avec l'équipe !")
 
 else:
     st.info("👈 Veuillez importer votre fichier CSV quotidien via le menu de gauche.")
