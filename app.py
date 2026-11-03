@@ -158,7 +158,7 @@ if uploaded_file is not None:
                 </div>
             """, unsafe_allow_html=True)
 
-        # Encart Délais d'expédition (Histogramme à plat avec référence 1.8j et record MIN)
+        # Encart Délais d'expédition (Histogramme à plat avec référence 1.8j et flèche record 🏆)
         col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
         raw_delai = row_veille.get(col_delai[0] if col_delai else '', 0)
         val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
@@ -200,12 +200,28 @@ if uploaded_file is not None:
                 insidetextanchor='middle',
                 textfont=dict(color='white', size=14, family='Arial Black')
             ))
+            
+            # Ajout de l'annotation flèche dorée + coupe 🏆 si c'est le record min
+            if is_record_delai and val_delai_num > 0:
+                fig_bar.add_annotation(
+                    x=val_delai_num, y='Délai Réel',
+                    text="🏆 RECORD MIN",
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowsize=1,
+                    arrowwidth=3,
+                    arrowcolor="#ffd700",
+                    font=dict(color="#b8860b", size=12, family="Arial Black"),
+                    ay=-35,
+                    ax=0
+                )
+
             fig_bar.update_layout(
                 barmode='overlay',
                 xaxis=dict(range=[0, max(2.5, val_delai_num * 1.2)], showgrid=False, zeroline=False),
                 yaxis=dict(showgrid=False),
-                height=80,
-                margin=dict(t=5, b=5, l=5, r=5),
+                height=95,
+                margin=dict(t=25, b=5, l=5, r=5),
                 plot_bgcolor='white',
                 paper_bgcolor='white',
                 showlegend=False
@@ -245,9 +261,9 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-        # --- GRAPHIQUE HEURE PAR HEURE (RECORD ABSOLU EN JAUNE, AUTRES EN VERT ZIGGY) ---
+        # --- GRAPHIQUE HEURE PAR HEURE (MOYENNES TRANSPARENTES SANS CHEVAUCHEMENT + RECORD JAUNE) ---
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyenne 30j & Moyenne du jour)</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
             
             hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
             if not hour_cols and len(df.columns) > 106:
@@ -265,34 +281,53 @@ if uploaded_file is not None:
                 mean_filtered_30 = s_vals[s_vals > 0].mean()
                 if pd.isna(mean_filtered_30): mean_filtered_30 = 146.0
 
-                # 2. Moyenne du jour sélectionné
-                mean_today = row_hours.mean()
-
-                # 3. Recherche du record historique absolu sur les colonnes horaires (max de tout le dataset sur ces colonnes)
-                max_historical_hour = df[hour_cols].apply(pd.to_numeric, errors='coerce').max().max()
-                if pd.isna(max_historical_hour): max_historical_hour = row_hours.max()
+                # 2. Moyenne du jour sélectionné (0 chiffre après la virgule)
+                mean_today = round(row_hours.mean())
 
                 fig = go.Figure()
                 
-                # Ligne de la moyenne des 30j ouvrés (pointillés vert foncé)
+                # Ligne de la moyenne des 30j ouvrés (vert transparent)
                 fig.add_trace(go.Scatter(
                     x=hours_labels,
                     y=[mean_filtered_30] * len(hours_labels),
                     mode='lines',
                     name=f'Moyenne 30j ouvrés ({mean_filtered_30:.0f})',
-                    line=dict(color='rgba(26, 77, 46, 0.6)', width=2, dash='dash')
+                    line=dict(color='rgba(46, 125, 50, 0.4)', width=2, dash='dash')
                 ))
 
-                # Ligne de la moyenne du jour (ligne continue bleu foncé)
+                # Ligne de la moyenne du jour (bleu transparent)
                 fig.add_trace(go.Scatter(
                     x=hours_labels,
                     y=[mean_today] * len(hours_labels),
                     mode='lines',
-                    name=f'Moyenne du jour ({mean_today:.1f})',
-                    line=dict(color='#00008b', width=3, dash='solid')
+                    name=f'Moyenne du jour ({mean_today:.0f})',
+                    line=dict(color='rgba(0, 0, 139, 0.4)', width=3, dash='solid')
                 ))
 
-                # Histogramme des colis du jour (Jaune uniquement si record historique atteint/dépassé, sinon vert Ziggy #1a4d2e)
+                # Texte de la moyenne 30j (vert transparent, à droite, décalé en Y pour éviter le chevauchement)
+                fig.add_annotation(
+                    x=hours_labels[-1], y=mean_filtered_30,
+                    text=f"Moy. 30j: {mean_filtered_30:.0f}",
+                    showarrow=False,
+                    xanchor="left", yanchor="bottom",
+                    yshift=5, xshift=5,
+                    font=dict(color="rgba(46, 125, 50, 0.8)", size=11, family="Arial Black")
+                )
+
+                # Texte de la moyenne du jour (bleu transparent, à droite, décalé un peu plus haut ou plus bas)
+                fig.add_annotation(
+                    x=hours_labels[-1], y=mean_today,
+                    text=f"Moy. Jour: {mean_today:.0f}",
+                    showarrow=False,
+                    xanchor="left", yanchor="bottom",
+                    yshift=22, xshift=5,
+                    font=dict(color="rgba(0, 0, 139, 0.8)", size=11, family="Arial Black")
+                )
+
+                # 3. Record historique absolu sur les colonnes horaires pour colorer en jaune
+                max_historical_hour = df[hour_cols].apply(pd.to_numeric, errors='coerce').max().max()
+                if pd.isna(max_historical_hour): max_historical_hour = row_hours.max()
+
                 bar_colors = ['#ffd700' if val >= max_historical_hour and val > 0 else '#1a4d2e' for val in row_hours.values]
 
                 fig.add_trace(go.Bar(
@@ -307,10 +342,10 @@ if uploaded_file is not None:
                 fig.update_layout(
                     plot_bgcolor='white',
                     paper_bgcolor='white',
-                    height=290,
-                    margin=dict(t=20, b=20, l=20, r=20),
+                    height=300,
+                    margin=dict(t=25, b=20, l=20, r=70),
                     showlegend=True,
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                    legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
