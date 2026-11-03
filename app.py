@@ -140,11 +140,13 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps (Plafonnement jauge à 100% si > 100%)
+    # COLONNE 2 : Préparées à Temps (Correction conversion décimale -> % et plafonnement jauge à 100%)
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     if pd.isna(val_taux_raw): val_taux_raw = 0
-    val_taux_pct = val_taux_raw * 100 if val_taux_raw <= 1 else val_taux_raw
+    
+    # Correction : Si la valeur est sous forme décimale (ex: 1.02 pour 102% ou 0.84 pour 84%), on multiplie par 100
+    val_taux_pct = val_taux_raw * 100 if val_taux_raw <= 2.0 else val_taux_raw
 
     # Valeur affichée sur la jauge plafonnée à 100 max pour l'affichage visuel
     val_gauge_display = min(100.0, val_taux_pct)
@@ -197,7 +199,7 @@ if uploaded_file is not None:
                 if col is not None and col in row_veille:
                     raw_v = pd.to_numeric(row_veille[col], errors='coerce')
                     if pd.isna(raw_v): raw_v = 0.0
-                    pct_val = raw_v * 100 if raw_v <= 1 else raw_v
+                    pct_val = raw_v * 100 if raw_v <= 2.0 else raw_v
                     j_vals.append(pct_val)
                 else:
                     j_vals.append(0.0)
