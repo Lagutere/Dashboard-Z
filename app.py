@@ -526,7 +526,7 @@ if uploaded_file is not None:
 
     st.markdown('</div>', unsafe_allow_html=True)  # Fin du fond de section Jour
 
-    st.success("💡 **Conseil Point d'Équipe :** Utilisez cet écran à 8h30 pour fixer les caps avec l'équipe !")
+
 
 else:
     st.info("👈 Veuillez importer votre fichier CSV quotidien via le menu de gauche.")
