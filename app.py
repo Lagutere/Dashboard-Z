@@ -344,7 +344,8 @@ if uploaded_file is not None:
             else:
                 st.info("Données insuffisantes pour l'historique de productivité P2.")
 
-    # 2. Cadence Heure par Heure (Remis comme avant)
+   
+# 2. Cadence Heure par Heure
     with mid_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
@@ -355,7 +356,10 @@ if uploaded_file is not None:
 
             if len(hour_cols) > 0:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
-                hours_labels = [str(h).split()[0] for h in hour_cols]
+                
+                # Définition propre des heures fixes ou extraction nettoyée
+                # Si tu veux des libellés propres (7h, 8h, 9h...), tu peux utiliser une liste standard correspondante :
+                hours_labels = [f"{7 + i}h00" for i in range(len(hour_cols))]
 
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
                 df_working = df[df['day_of_week'] < 5].tail(30)
@@ -397,9 +401,12 @@ if uploaded_file is not None:
                     x=hours_labels, y=row_hours.values, name=str(selected_date),
                     text=row_hours.values, textposition='outside', marker_color=bar_colors
                 ))
+                
+                # IMPORTANT : On force l'axe X en type 'category' pour éviter l'affichage de nombres décimaux (0.3, 0.4...)
                 fig.update_layout(
                     plot_bgcolor='white', paper_bgcolor='white', height=270,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
+                    xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
                 )
                 st.plotly_chart(fig, use_container_width=True)
