@@ -337,7 +337,7 @@ if uploaded_file is not None:
                     line=dict(color="#8b008b", width=2, dash="solid"), layer="below"
                 )
                 fig_p2.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=270,
+                    plot_bgcolor='white', paper_bgcolor='white', height=240,
                     margin=dict(t=20, b=20, l=20, r=20), showlegend=False
                 )
                 st.plotly_chart(fig_p2, use_container_width=True)
@@ -401,7 +401,7 @@ if uploaded_file is not None:
                 ))
                 
                 fig.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=270,
+                    plot_bgcolor='white', paper_bgcolor='white', height=300,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
                     xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
