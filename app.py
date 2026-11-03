@@ -140,7 +140,7 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps (Obj. Lundi à gauche, Obj. Autre à droite, Demi-compteur agrandi)
+    # COLONNE 2 : Préparées à Temps
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     if pd.isna(val_taux_raw): val_taux_raw = 0
@@ -148,9 +148,8 @@ if uploaded_file is not None:
 
     with top_c2:
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; text-align: center; margin-bottom: 10px;'>⏱️ Préparées à Temps</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>⏱️ Préparées à Temps</div>", unsafe_allow_html=True)
             
-            # Objectifs côte à côte (Lundi à gauche, Autre à droite)
             oc1, oc2 = st.columns(2)
             with oc1:
                 st.session_state.obj_temps_lundi = st.number_input("Obj. Lundi (%)", value=st.session_state.obj_temps_lundi, step=1.0)
@@ -160,7 +159,6 @@ if uploaded_file is not None:
             is_temps_ok = val_taux_pct >= obj_temps_actif
             gauge_bar_color = "#2e7d32" if is_temps_ok else "#8b0000"
 
-            # Demi-compteur agrandi prenant toute la place
             fig_gauge = go.Figure(go.Indicator(
                 mode = "gauge+number",
                 value = val_taux_pct,
@@ -178,7 +176,6 @@ if uploaded_file is not None:
             fig_gauge.update_layout(height=160, margin=dict(t=10, b=0, l=10, r=10))
             st.plotly_chart(fig_gauge, use_container_width=True)
 
-            # Mini histogramme J-3 à J+1 en %
             target_j_labels = ['J-3', 'J-2', 'J-1', 'J+0', 'J+1']
             found_cols = []
             for tj in target_j_labels:
@@ -218,7 +215,7 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_j, use_container_width=True)
 
-    # COLONNE 3 : Délais d'Expédition (Objectifs compacts + Histogramme VERTICAL avec référence 2j)
+    # COLONNE 3 : Délais d'Expédition (Style Photo 2 : Objectifs à gauche, Histogramme vertical à droite)
     col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
     raw_delai = row_veille.get(col_delai[0] if col_delai else '', 0)
     val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
@@ -229,49 +226,44 @@ if uploaded_file is not None:
     is_record_delai = (val_delai_num <= min_delai) and (val_delai_num > 0)
 
     with top_c3:
-        header_delai_title = "🏆 RECORD DÉLAI D'EXPÉDITION" if is_record_delai else "🚚 Délais d'Expédition"
+        header_delai_title = "🏆 RECORD DÉLAI" if is_record_delai else "🚚 Délais d'Expédition"
         header_delai_bg = "#b8860b" if is_record_delai else "#1a4d2e"
         with st.container(border=True):
             st.markdown(f"<div style='background-color: {header_delai_bg}; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px; text-align: center;'>{header_delai_title}</div>", unsafe_allow_html=True)
             
-            # Saisies d'objectifs moins longues
-            st.session_state.obj_delai_lundi = st.number_input("Obj. Lundi (<)", value=st.session_state.obj_delai_lundi, step=0.05)
-            st.session_state.obj_delai_autre = st.number_input("Obj. Autre (<)", value=st.session_state.obj_delai_autre, step=0.05)
+            # Disposition interne en 2 colonnes (Inputs à gauche, Graphique vertical à droite)
+            sub_c_inputs, sub_c_chart = st.columns([1.1, 1])
 
-            is_delai_ok = val_delai_num <= obj_delai_actif
-            bar_color = "#2e7d32" if is_delai_ok else "#8b0000"
+            with sub_c_inputs:
+                st.session_state.obj_delai_lundi = st.number_input("Obj. Lundi (<)", value=st.session_state.obj_delai_lundi, step=0.05)
+                st.session_state.obj_delai_autre = st.number_input("Obj. Autre (<)", value=st.session_state.obj_delai_autre, step=0.05)
 
-            # Histogramme VERTICAL avec barre grise de fond jusqu'à 2j (jusqu'en haut)
-            fig_bar_vert = go.Figure()
-            fig_bar_vert.add_trace(go.Bar(
-                x=['Délai Réel'], y=[2.0], marker_color='#d3d3d3', hoverinfo='skip', name='Réf 2j'
-            ))
-            fig_bar_vert.add_trace(go.Bar(
-                x=['Délai Réel'], y=[val_delai_num], marker_color=bar_color,
-                text=f"{val_delai_num:.1f}j", textposition='inside', insidetextanchor='middle',
-                textfont=dict(color='white', size=14, family='Arial Black'), name='Réel'
-            ))
+                is_delai_ok = val_delai_num <= obj_delai_actif
+                status_delai_txt = "✅ OK" if is_delai_ok else "❌ Dépassé"
+                st.markdown(f"**Délai Réel :**<br>{val_delai_num:.1f}j ({status_delai_txt})", unsafe_allow_html=True)
 
-            if is_record_delai and val_delai_num > 0:
-                fig_bar_vert.add_annotation(
-                    x='Délai Réel', y=val_delai_num, text="🏆 RECORD",
-                    showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#ffd700",
-                    font=dict(color="#b8860b", size=10, family="Arial Black"), ay=-25, ax=0
+            with sub_c_chart:
+                bar_color = "#2e7d32" if is_delai_ok else "#8b0000"
+
+                fig_bar_vert = go.Figure()
+                fig_bar_vert.add_trace(go.Bar(
+                    x=['Délai'], y=[2.0], marker_color='#d3d3d3', hoverinfo='skip'
+                ))
+                fig_bar_vert.add_trace(go.Bar(
+                    x=['Délai'], y=[val_delai_num], marker_color=bar_color,
+                    text=f"{val_delai_num:.1f}j", textposition='inside', insidetextanchor='middle',
+                    textfont=dict(color='white', size=14, family='Arial Black')
+                ))
+
+                fig_bar_vert.update_layout(
+                    barmode='overlay',
+                    yaxis=dict(range=[0, 2.0], showgrid=False, zeroline=False, tickvals=[0, 0.5, 1, 1.5, 2]),
+                    xaxis=dict(showgrid=False, visible=False),
+                    height=210,
+                    margin=dict(t=5, b=5, l=10, r=5),
+                    plot_bgcolor='white', paper_bgcolor='white', showlegend=False
                 )
-
-            fig_bar_vert.update_layout(
-                barmode='overlay',
-                yaxis=dict(range=[0, 2.0], showgrid=False, zeroline=False),
-                xaxis=dict(showgrid=False, visible=False),
-                height=180,
-                margin=dict(t=10, b=5, l=10, r=10),
-                plot_bgcolor='white', paper_bgcolor='white', showlegend=False
-            )
-            st.plotly_chart(fig_bar_vert, use_container_width=True)
-
-            status_delai_txt = "✅ OK" if is_delai_ok else "❌ Dépassé"
-            record_txt = " 🏆 (Record Min !)" if is_record_delai else ""
-            st.markdown(f"**Délai Réel :** {val_delai_num:.1f} ({status_delai_txt}){record_txt}")
+                st.plotly_chart(fig_bar_vert, use_container_width=True)
 
 
     # ==========================================
