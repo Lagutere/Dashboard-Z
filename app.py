@@ -158,14 +158,21 @@ if uploaded_file is not None:
                 </div>
             """, unsafe_allow_html=True)
 
-        # Encart Délais d'expédition (Histogramme à plat)
+        # Encart Délais d'expédition (Histogramme à plat avec référence 1.8j et record MIN)
         col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
         raw_delai = row_veille.get(col_delai[0] if col_delai else '', 0)
         val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
         if pd.isna(val_delai_num): val_delai_num = 0.0
 
+        # Calcul du record historique (MIN des délais > 0)
+        s_delai_all = pd.to_numeric(df[col_delai[0]], errors='coerce')
+        min_delai = s_delai_all[s_delai_all > 0].min()
+        is_record_delai = (val_delai_num <= min_delai) and (val_delai_num > 0)
+
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🚚 Délais d'Expédition</div>", unsafe_allow_html=True)
+            header_delai_title = "🏆 RECORD DÉLAI D'EXPÉDITION" if is_record_delai else "🚚 Délais d'Expédition"
+            header_delai_bg = "#b8860b" if is_record_delai else "#1a4d2e"
+            st.markdown(f"<div style='background-color: {header_delai_bg}; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>{header_delai_title}</div>", unsafe_allow_html=True)
             
             col_o1, col_o2 = st.columns(2)
             with col_o1:
@@ -176,7 +183,17 @@ if uploaded_file is not None:
             is_delai_ok = val_delai_num <= obj_actif
             bar_color = "#2e7d32" if is_delai_ok else "#8b0000"
 
+            # Histogramme à plat (Barre de fond grise à 1.8j + Barre réelle par-dessus)
             fig_bar = go.Figure()
+            # Barre grise de référence fixe à 1.8j
+            fig_bar.add_trace(go.Bar(
+                x=[1.8],
+                y=['Délai Réel'],
+                orientation='h',
+                marker_color='#d3d3d3',
+                hoverinfo='skip'
+            ))
+            # Barre réelle
             fig_bar.add_trace(go.Bar(
                 x=[val_delai_num],
                 y=['Délai Réel'],
@@ -188,7 +205,8 @@ if uploaded_file is not None:
                 textfont=dict(color='white', size=14, family='Arial Black')
             ))
             fig_bar.update_layout(
-                xaxis=dict(range=[0, max(2.0, val_delai_num * 1.2)], showgrid=False, zeroline=False),
+                barmode='overlay',
+                xaxis=dict(range=[0, max(2.5, val_delai_num * 1.2)], showgrid=False, zeroline=False),
                 yaxis=dict(showgrid=False),
                 height=80,
                 margin=dict(t=5, b=5, l=5, r=5),
@@ -199,9 +217,10 @@ if uploaded_file is not None:
             st.plotly_chart(fig_bar, use_container_width=True)
 
             status_delai_txt = "✅ OK" if is_delai_ok else "❌ Dépassé"
-            st.markdown(f"**Délai Réel :** {val_delai_num:.1f} ({status_delai_txt})")
+            record_txt = " 🏆 (Record Min Historique !)" if is_record_delai else ""
+            st.markdown(f"**Délai Réel :** {val_delai_num:.1f} ({status_delai_txt}){record_txt}")
 
-        # --- ENCART RESTANT À FAIRE (DONUT CHART / CAMEMBERT CREUX : COL N vs COL P) ---
+        # --- ENCART RESTANT À FAIRE (DONUT CHART AVEC "CDE" ET ROUGE PÂLE) ---
         col_n = 'Colis Expédiés physiquement' if 'Colis Expédiés physiquement' in df.columns else df.columns[13]
         col_p = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
 
@@ -212,13 +231,13 @@ if uploaded_file is not None:
         if pd.isna(val_raf): val_raf = 0
 
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📦 Reste à Fabriqué / Répartition (Fabriqué vs RAF)</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📦 Reste à Fabriquer / Répartition (Commandes)</div>", unsafe_allow_html=True)
             
             fig_donut = go.Figure(data=[go.Pie(
-                labels=['Fabriqué (Col. N)', 'Restant à fabriquer / RAF (Col. P)'],
+                labels=['Fabriqué (Cde)', 'Restant à fabriquer / RAF (Cde)'],
                 values=[val_fabrique, val_raf],
                 hole=.6,
-                marker_colors=['#1a4d2e', '#e056fd'], # Vert foncé Ziggy et Rose peps
+                marker_colors=['#1a4d2e', '#ff9999'], # Vert foncé Ziggy et Rouge pâle
                 textinfo='label+value',
                 hoverinfo='label+value'
             )])
