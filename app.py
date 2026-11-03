@@ -140,17 +140,14 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps (Moyenne des 30 derniers jours ouvrés de la colonne AF)
+    # COLONNE 2 : Préparées à Temps
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     if pd.isna(val_taux_raw): val_taux_raw = 0
     val_taux_pct = val_taux_raw * 100 if val_taux_raw <= 2.0 else val_taux_raw
     val_gauge_display = min(100.0, val_taux_pct)
 
-    # Identification de la colonne AF (index 31) ou alternative
     col_af_name = df.columns[31] if len(df.columns) > 31 else col_taux_temps
-    
-    # Filtrer les 30 derniers jours ouvrés (sans week-ends, > 0)
     df['temp_day_of_week'] = df['Date_parsed'].dt.dayofweek
     df_working_30 = df[df['temp_day_of_week'] < 5].tail(30)
     
@@ -300,7 +297,7 @@ if uploaded_file is not None:
 
 
     # ==========================================
-    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (MÊME HAUTEUR)
+    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (AGRANDI ET FILTRÉ 7H-16H)
     # ==========================================
     mid_c1, mid_c2 = st.columns(2)
 
@@ -340,21 +337,32 @@ if uploaded_file is not None:
                     line=dict(color="#8b008b", width=2, dash="solid"), layer="below"
                 )
                 fig_p2.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=270,
+                    plot_bgcolor='white', paper_bgcolor='white', height=340,
                     margin=dict(t=20, b=20, l=20, r=20), showlegend=False
                 )
                 st.plotly_chart(fig_p2, use_container_width=True)
             else:
                 st.info("Données insuffisantes pour l'historique de productivité P2.")
 
-    # 2. Cadence Heure par Heure (Même hauteur height=270)
+    # 2. Cadence Heure par Heure (Agrandit à height=340 et filtré de 7h00 à 16h00 inclus)
     with mid_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
             
-            hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
-            if not hour_cols and len(df.columns) > 106:
-                hour_cols = df.columns[95:107]
+            # Recherche des colonnes horaires et filtrage strict de 7h00 à 16h00
+            all_hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
+            if not all_hour_cols and len(df.columns) > 106:
+                all_hour_cols = list(df.columns[95:107])
+
+            # Filtrage pour ne garder que de 07:00 à 16:00 inclus
+            hour_cols = []
+            for c in all_hour_cols:
+                c_str = str(c)
+                for h in range(7, 17):
+                    h_str = f"{h:02d}:00"
+                    if h_str in c_str:
+                        hour_cols.append(c)
+                        break
 
             if len(hour_cols) > 0:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
@@ -401,13 +409,13 @@ if uploaded_file is not None:
                     text=row_hours.values, textposition='outside', marker_color=bar_colors
                 ))
                 fig.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=270,
+                    plot_bgcolor='white', paper_bgcolor='white', height=340,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
                 )
                 st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("Colonnes horaires non détectées.")
+                st.info("Colonnes horaires de 7h00 à 16h00 non détectées.")
 
 
     # ==========================================
@@ -436,7 +444,7 @@ if uploaded_file is not None:
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🛡️ Encart Qualité & Incidents</div>", unsafe_allow_html=True)
             st.session_state.qualite_val = st.text_area("Notes qualité", value=st.session_state.qualite_val)
 
-    st.success("💡 **Conseil Point d'Équipe :** Utilisez cet écran à 8h30 pour fixer les caps avec l'équipe !")
+    
 
 else:
     st.info("👈 Veuillez importer votre fichier CSV quotidien via le menu de gauche.")
