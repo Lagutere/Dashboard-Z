@@ -140,15 +140,11 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps (Correction conversion décimale -> % et plafonnement jauge à 100%)
+    # COLONNE 2 : Préparées à Temps (Demi-compteur avec seuil fushia de l'objectif actif)
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     if pd.isna(val_taux_raw): val_taux_raw = 0
-    
-    # Correction : Si la valeur est sous forme décimale (ex: 1.02 pour 102% ou 0.84 pour 84%), on multiplie par 100
     val_taux_pct = val_taux_raw * 100 if val_taux_raw <= 2.0 else val_taux_raw
-
-    # Valeur affichée sur la jauge plafonnée à 100 max pour l'affichage visuel
     val_gauge_display = min(100.0, val_taux_pct)
 
     with top_c2:
@@ -176,7 +172,12 @@ if uploaded_file is not None:
                     'steps': [
                         {'range': [0, obj_temps_actif], 'color': '#ffebee'},
                         {'range': [obj_temps_actif, 100], 'color': '#e8f5e9'}
-                    ]
+                    ],
+                    'threshold': {
+                        'line': {'color': "#8b008b", 'width': 4},
+                        'thickness': 0.8,
+                        'value': obj_temps_actif
+                    }
                 }
             ))
             fig_gauge.update_layout(height=160, margin=dict(t=10, b=0, l=10, r=10))
@@ -221,19 +222,40 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_j, use_container_width=True)
 
-    # COLONNE 3 : Délais d'Expédition
+    # COLONNE 3 : Délais d'Expédition (Ligne objectif fushia foncé sur le graph + Record MIN colonne AF / index 31)
     col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
     raw_delai = row_veille.get(col_delai[0] if col_delai else '', 0)
     val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
     if pd.isna(val_delai_num): val_delai_num = 0.0
 
-    s_delai_all = pd.to_numeric(df[col_delai[0]], errors='coerce')
-    min_delai = s_delai_all[s_delai_all > 0].min()
-    is_record_delai = (val_delai_num <= min_delai) and (val_delai_num > 0)
+    # Recherche de la colonne AF (ou index 31) pour le record MIN
+    col_af_name = None
+    # Colonne AF correspond à l'index 31 dans Excel (A=0 ... AF=31)
+    if len(df.columns) > 31:
+        col_af_name = df.columns[31]
+    
+    # Recherche alternative par libellé si besoin
+    match_af = [c for c in df.columns if 'af' in str(c).lower() or 'min' in str(c).lower() or 'record' in str(c).lower()]
+    if col_af_name is None and match_af:
+        col_af_name = match_af[0]
+
+    min_af_val = None
+    if col_af_name is not None and col_af_name in df.columns:
+        s_af = pd.to_numeric(df[col_af_name], errors='coerce')
+        if not s_af.dropna().empty:
+            min_af_val = s_af[s_af > 0].min()
+
+    # Fallback si colonne AF introuvable : calcul du min sur la colonne de délai
+    if min_af_val is None and col_delai:
+        s_delai_all = pd.to_numeric(df[col_delai[0]], errors='coerce')
+        min_af_val = s_delai_all[s_delai_all > 0].min()
+
+    if pd.isna(min_af_val): 
+        min_af_val = val_delai_num
 
     with top_c3:
-        header_delai_title = "🏆 RECORD DÉLAI" if is_record_delai else "🚚 Délais d'Expédition"
-        header_delai_bg = "#b8860b" if is_record_delai else "#1a4d2e"
+        header_delai_title = "🏆 DÉLAI D'EXPÉDITION"
+        header_delai_bg = "#1a4d2e"
         with st.container(border=True):
             st.markdown(f"<div style='background-color: {header_delai_bg}; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px; text-align: center;'>{header_delai_title}</div>", unsafe_allow_html=True)
             
@@ -246,6 +268,7 @@ if uploaded_file is not None:
                 is_delai_ok = val_delai_num <= obj_delai_actif
                 status_delai_txt = "✅ OK" if is_delai_ok else "❌ Dépassé"
                 st.markdown(f"**Délai Réel :**<br>{val_delai_num:.1f}j ({status_delai_txt})", unsafe_allow_html=True)
+                st.markdown(f"**Record MIN :** {min_af_val:.1f}j", unsafe_allow_html=True)
 
             with sub_c_chart:
                 bar_color = "#2e7d32" if is_delai_ok else "#8b0000"
@@ -259,6 +282,12 @@ if uploaded_file is not None:
                     text=f"{val_delai_num:.1f}j", textposition='inside', insidetextanchor='middle',
                     textfont=dict(color='white', size=14, family='Arial Black')
                 ))
+
+                # Ligne horizontale en fushia foncé pour l'objectif du jour (obj_delai_actif)
+                fig_bar_vert.add_shape(
+                    type="line", x0=-0.5, x1=0.5, y0=obj_delai_actif, y1=obj_delai_actif,
+                    line=dict(color="#8b008b", width=3, dash="solid")
+                )
 
                 fig_bar_vert.update_layout(
                     barmode='overlay',
