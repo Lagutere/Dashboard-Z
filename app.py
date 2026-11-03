@@ -164,7 +164,6 @@ if uploaded_file is not None:
         val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
         if pd.isna(val_delai_num): val_delai_num = 0.0
 
-        # Calcul du record historique (MIN des délais > 0)
         s_delai_all = pd.to_numeric(df[col_delai[0]], errors='coerce')
         min_delai = s_delai_all[s_delai_all > 0].min()
         is_record_delai = (val_delai_num <= min_delai) and (val_delai_num > 0)
@@ -183,9 +182,7 @@ if uploaded_file is not None:
             is_delai_ok = val_delai_num <= obj_actif
             bar_color = "#2e7d32" if is_delai_ok else "#8b0000"
 
-            # Histogramme à plat (Barre de fond grise à 1.8j + Barre réelle par-dessus)
             fig_bar = go.Figure()
-            # Barre grise de référence fixe à 1.8j
             fig_bar.add_trace(go.Bar(
                 x=[1.8],
                 y=['Délai Réel'],
@@ -193,7 +190,6 @@ if uploaded_file is not None:
                 marker_color='#d3d3d3',
                 hoverinfo='skip'
             ))
-            # Barre réelle
             fig_bar.add_trace(go.Bar(
                 x=[val_delai_num],
                 y=['Délai Réel'],
@@ -237,7 +233,7 @@ if uploaded_file is not None:
                 labels=['Fabriqué (Cde)', 'Restant à fabriquer / RAF (Cde)'],
                 values=[val_fabrique, val_raf],
                 hole=.6,
-                marker_colors=['#1a4d2e', '#ff9999'], # Vert foncé Ziggy et Rouge pâle
+                marker_colors=['#1a4d2e', '#ff9999'],
                 textinfo='label+value',
                 hoverinfo='label+value'
             )])
@@ -249,9 +245,9 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-        # --- GRAPHIQUE HEURE PAR HEURE (MOYENNE 30J OUVRÉS HORS ZÉROS) ---
+        # --- GRAPHIQUE HEURE PAR HEURE (RECORD ABSOLU EN JAUNE, AUTRES EN VERT ZIGGY) ---
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyenne 30j ouvrés hors zéros)</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyenne 30j & Moyenne du jour)</div>", unsafe_allow_html=True)
             
             hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
             if not hour_cols and len(df.columns) > 106:
@@ -261,25 +257,43 @@ if uploaded_file is not None:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
                 hours_labels = [str(h).split()[0] for h in hour_cols]
 
+                # 1. Moyenne 30 jours ouvrés hors zéros
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
                 df_working = df[df['day_of_week'] < 5].tail(30)
-                
                 col_target = 'Colis/h préparés' if 'Colis/h préparés' in df.columns else df.columns[33]
                 s_vals = pd.to_numeric(df_working[col_target], errors='coerce')
                 mean_filtered_30 = s_vals[s_vals > 0].mean()
                 if pd.isna(mean_filtered_30): mean_filtered_30 = 146.0
 
+                # 2. Moyenne du jour sélectionné
+                mean_today = row_hours.mean()
+
+                # 3. Recherche du record historique absolu sur les colonnes horaires (max de tout le dataset sur ces colonnes)
+                max_historical_hour = df[hour_cols].apply(pd.to_numeric, errors='coerce').max().max()
+                if pd.isna(max_historical_hour): max_historical_hour = row_hours.max()
+
                 fig = go.Figure()
+                
+                # Ligne de la moyenne des 30j ouvrés (pointillés vert foncé)
                 fig.add_trace(go.Scatter(
                     x=hours_labels,
                     y=[mean_filtered_30] * len(hours_labels),
                     mode='lines',
                     name=f'Moyenne 30j ouvrés ({mean_filtered_30:.0f})',
-                    line=dict(color='rgba(26, 77, 46, 0.6)', width=3, dash='dash')
+                    line=dict(color='rgba(26, 77, 46, 0.6)', width=2, dash='dash')
                 ))
 
-                max_val_hour = row_hours.max()
-                bar_colors = ['#ffd700' if val == max_val_hour and val > 0 else '#1a4d2e' for val in row_hours.values]
+                # Ligne de la moyenne du jour (ligne continue bleu foncé)
+                fig.add_trace(go.Scatter(
+                    x=hours_labels,
+                    y=[mean_today] * len(hours_labels),
+                    mode='lines',
+                    name=f'Moyenne du jour ({mean_today:.1f})',
+                    line=dict(color='#00008b', width=3, dash='solid')
+                ))
+
+                # Histogramme des colis du jour (Jaune uniquement si record historique atteint/dépassé, sinon vert Ziggy #1a4d2e)
+                bar_colors = ['#ffd700' if val >= max_historical_hour and val > 0 else '#1a4d2e' for val in row_hours.values]
 
                 fig.add_trace(go.Bar(
                     x=hours_labels,
