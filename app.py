@@ -440,7 +440,7 @@ if uploaded_file is not None:
             
             hour_cols = [c for c in df.columns if any(h in str(c) for h in ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'])]
             if not hour_cols and len(df.columns) > 106:
-                hour_cols = df.columns[97:105]
+                hour_cols = df.columns[97:107]
 
             if len(hour_cols) > 0:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
@@ -488,7 +488,7 @@ if uploaded_file is not None:
                 ))
                 
                 fig.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=270,
+                    plot_bgcolor='white', paper_bgcolor='white', height=310,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
                     xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
