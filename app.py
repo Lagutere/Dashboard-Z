@@ -349,9 +349,9 @@ if uploaded_file is not None:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
             
-            hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
+            hour_cols = [c for c in df.columns if any(h in str(c) for h in ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'])]
             if not hour_cols and len(df.columns) > 106:
-                hour_cols = df.columns[95:107]
+                hour_cols = df.columns[97:105]
 
             if len(hour_cols) > 0:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
