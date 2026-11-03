@@ -100,20 +100,43 @@ if uploaded_file is not None:
 
     top_c1, top_c2, top_c3 = st.columns(3)
 
-    # COLONNE 1 : Colis Expédiés + Reste à Fabriquer (Camembert) en dessous
+    # COLONNE 1 : Colis Expédiés + Jauge de progression / Record + Reste à Fabriquer
     with top_c1:
         col_colis_exp = 'COLIS préparés (Shipment)' if 'COLIS préparés (Shipment)' in df.columns else df.columns[11]
         val_colis = pd.to_numeric(row_veille.get(col_colis_exp, 0), errors='coerce')
         if pd.isna(val_colis): val_colis = 0
         max_colis = pd.to_numeric(df[col_colis_exp], errors='coerce').max()
+        if pd.isna(max_colis) or max_colis == 0: max_colis = 1646  # Valeur de secours si besoin
+        
         is_record_colis = (val_colis >= max_colis) and (val_colis > 0)
 
         bg_header = "#b8860b" if is_record_colis else "#1a4d2e"
         title_text = "🏆 RECORD COLIS EXPÉDIÉS" if is_record_colis else "📦 Colis Expédiés"
+        
         with st.container(border=True):
             st.markdown(f"<div style='background-color: {bg_header}; color: white; padding: 8px; font-weight: bold; border-radius: 5px; text-align: center; margin-bottom: 5px;'>{title_text}</div>", unsafe_allow_html=True)
             st.markdown(f"<h1 style='color: {bg_header}; text-align: center; font-size: 2.0em; margin: 0;'>{val_colis:,.0f}</h1>", unsafe_allow_html=True)
-            st.markdown(f"<p style='text-align: center; color: #666; margin: 2px 0 0 0; font-size: 0.9em;'>Max historique : {max_colis:,.0f}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: right; color: #666; margin: 0 0 2px 0; font-size: 0.8em;'>Record : {max_colis:,.0f}</p>", unsafe_allow_html=True)
+
+            # Mini graphique horizontal (rectangle gris fond + rectangle vert superposition)
+            fig_record = go.Figure()
+            # Fond gris (max historique)
+            fig_record.add_trace(go.Bar(
+                y=['Colis'], x=[max_colis], orientation='h', marker_color='#d3d3d3', hoverinfo='skip'
+            ))
+            # Réalisé (vert par-dessus)
+            fig_record.add_trace(go.Bar(
+                y=['Colis'], x=[val_colis], orientation='h', marker_color='#2e7d32', hoverinfo='skip'
+            ))
+            fig_record.update_layout(
+                barmode='overlay',
+                xaxis=dict(range=[0, max(max_colis, val_colis) * 1.05], showgrid=False, visible=False),
+                yaxis=dict(showgrid=False, visible=False),
+                height=45,
+                margin=dict(t=0, b=0, l=0, r=0),
+                plot_bgcolor='white', paper_bgcolor='white', showlegend=False
+            )
+            st.plotly_chart(fig_record, use_container_width=True)
 
         col_n = 'Colis Expédiés physiquement' if 'Colis Expédiés physiquement' in df.columns else df.columns[13]
         col_p = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
@@ -140,7 +163,7 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps (Moyenne des 30 derniers jours ouvrés de la colonne AF)
+    # COLONNE 2 : Préparées à Temps
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     if pd.isna(val_taux_raw): val_taux_raw = 0
@@ -305,7 +328,7 @@ if uploaded_file is not None:
     val_prod = pd.to_numeric(row_veille.get(col_prod_p2, 0), errors='coerce')
     if pd.isna(val_prod): val_prod = 0.0
 
-    # 1. Productivité P2 (15 Derniers Jours - Hauteur réduite à 270 pour correspondre à droite)
+    # 1. Productivité P2 (15 Derniers Jours)
     with mid_c1:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📊 Productivité P2 - 15 Derniers Jours</div>", unsafe_allow_html=True)
@@ -337,14 +360,14 @@ if uploaded_file is not None:
                     line=dict(color="#8b008b", width=2, dash="solid"), layer="below"
                 )
                 fig_p2.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=240,
+                    plot_bgcolor='white', paper_bgcolor='white', height=270,
                     margin=dict(t=20, b=20, l=20, r=20), showlegend=False
                 )
                 st.plotly_chart(fig_p2, use_container_width=True)
             else:
                 st.info("Données insuffisantes pour l'historique de productivité P2.")
 
-    # 2. Cadence Heure par Heure (Hauteur à 270)
+    # 2. Cadence Heure par Heure
     with mid_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
@@ -356,7 +379,6 @@ if uploaded_file is not None:
             if len(hour_cols) > 0:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
                 
-                # Génération de libellés horaires propres (7h00, 8h00, etc.)
                 hours_labels = [f"{7 + i}h00" for i in range(len(hour_cols))]
 
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
@@ -401,7 +423,7 @@ if uploaded_file is not None:
                 ))
                 
                 fig.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=320,
+                    plot_bgcolor='white', paper_bgcolor='white', height=270,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
                     xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
