@@ -125,7 +125,7 @@ if uploaded_file is not None:
                 st.markdown(f"<h1 style='color: {bg_header}; text-align: center; font-size: 2.2em; margin: 0;'>{val_colis:,.0f}</h1>", unsafe_allow_html=True)
                 st.markdown(f"<p style='text-align: center; color: #666; margin: 5px 0 0 0;'>Max historique : {max_colis:,.0f}</p>", unsafe_allow_html=True)
 
-        # Encart Préparées à Temps (Avec objectifs Lundi / Autre & Coloration dynamique)
+        # Encart Préparées à Temps
         with c2:
             with st.container(border=True):
                 st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; text-align: center; margin-bottom: 5px;'>⏱️ Préparées à Temps</div>", unsafe_allow_html=True)
@@ -161,26 +161,51 @@ if uploaded_file is not None:
                 fig_gauge.update_layout(height=110, margin=dict(t=5, b=5, l=10, r=10))
                 st.plotly_chart(fig_gauge, use_container_width=True)
 
-        # Encart Productivité P2 (Arrondi à 1 chiffre après la virgule)
+        # Encart Productivité P2 (Graphique 15 Derniers Jours à la place du texte)
         col_prod_p2 = 'Productivité P2' if 'Productivité P2' in df.columns else [c for c in df.columns if 'Productivité P2' in str(c)][0]
         val_prod = pd.to_numeric(row_veille.get(col_prod_p2, 0), errors='coerce')
         if pd.isna(val_prod): val_prod = 0.0
 
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>⚡ Productivité P2 & Objectif</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📊 Productivité P2 - 15 Derniers Jours</div>", unsafe_allow_html=True)
             obj_prod = st.number_input("🎯 Objectif Productivité P2 (saisie manuelle)", value=15.0, step=0.5)
-            is_prod_ok = val_prod >= obj_prod
-            prod_color = "#2e7d32" if is_prod_ok else "#8b0000"
-            prod_bg = "#e8f5e9" if is_prod_ok else "#ffebee"
-            status_text = "✅ OK" if is_prod_ok else "❌ À améliorer"
 
-            st.markdown(f"""
-                <div style="background-color: {prod_bg}; border: 2px solid {prod_color}; border-radius: 8px; padding: 10px; text-align: center; margin-top: 10px;">
-                    <span style="font-size: 1.05em; font-weight: bold; color: {prod_color};">
-                        Productivité Réelle : {val_prod:.1f} (Objectif : {obj_prod:.1f}) -> {status_text}
-                    </span>
-                </div>
-            """, unsafe_allow_html=True)
+            df_hist_p2 = df.tail(15).copy()
+            if not df_hist_p2.empty:
+                dates_p2 = df_hist_p2['Date_parsed'].dt.strftime('%d/%m').fillna(df_hist_p2['Date'].astype(str))
+                vals_p2 = pd.to_numeric(df_hist_p2[col_prod_p2], errors='coerce').fillna(0)
+
+                colors_p2 = []
+                for idx, row in df_hist_p2.iterrows():
+                    d_parsed = row['Date_parsed']
+                    is_selected_day = (not pd.isna(d_parsed) and d_parsed.date() == selected_date) or (str(row['Date']) == str(row_veille.get('Date', '')))
+                    v_val = pd.to_numeric(row.get(col_prod_p2, 0), errors='coerce')
+                    if pd.isna(v_val): v_val = 0.0
+
+                    if is_selected_day:
+                        # Couleur du dernier jour selon l'objectif (Vert ou Rouge foncé)
+                        colors_p2.append('#2e7d32' if v_val >= obj_prod else '#8b0000')
+                    else:
+                        colors_p2.append('#1a4d2e')
+
+                fig_p2 = go.Figure()
+                fig_p2.add_trace(go.Bar(
+                    x=dates_p2,
+                    y=vals_p2,
+                    text=vals_p2.round(1),
+                    textposition='outside',
+                    marker_color=colors_p2
+                ))
+                fig_p2.update_layout(
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    height=240,
+                    margin=dict(t=20, b=20, l=20, r=20),
+                    showlegend=False
+                )
+                st.plotly_chart(fig_p2, use_container_width=True)
+            else:
+                st.info("Données insuffisantes pour l'historique de productivité P2.")
 
         # Encart Délais d'expédition (Histogramme à plat avec référence 1.8j et flèche record 🏆)
         col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
@@ -283,46 +308,6 @@ if uploaded_file is not None:
                 legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
             )
             st.plotly_chart(fig_donut, use_container_width=True)
-
-        # --- GRAPHIQUE HISTOGRAMME PRODUCTIVITÉ P2 (15 DERNIERS JOURS) ---
-        with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📊 Productivité P2 - 15 Derniers Jours</div>", unsafe_allow_html=True)
-            
-            df_hist_p2 = df.tail(15).copy()
-            if not df_hist_p2.empty:
-                dates_p2 = df_hist_p2['Date_parsed'].dt.strftime('%d/%m').fillna(df_hist_p2['Date'].astype(str))
-                vals_p2 = pd.to_numeric(df_hist_p2[col_prod_p2], errors='coerce').fillna(0)
-
-                colors_p2 = []
-                for idx, row in df_hist_p2.iterrows():
-                    d_parsed = row['Date_parsed']
-                    is_selected_day = (not pd.isna(d_parsed) and d_parsed.date() == selected_date) or (str(row['Date']) == str(row_veille.get('Date', '')))
-                    v_val = pd.to_numeric(row.get(col_prod_p2, 0), errors='coerce')
-                    if pd.isna(v_val): v_val = 0.0
-
-                    if is_selected_day:
-                        colors_p2.append('#2e7d32' if v_val >= obj_prod else '#8b0000')
-                    else:
-                        colors_p2.append('#1a4d2e')
-
-                fig_p2 = go.Figure()
-                fig_p2.add_trace(go.Bar(
-                    x=dates_p2,
-                    y=vals_p2,
-                    text=vals_p2.round(1),
-                    textposition='outside',
-                    marker_color=colors_p2
-                ))
-                fig_p2.update_layout(
-                    plot_bgcolor='white',
-                    paper_bgcolor='white',
-                    height=250,
-                    margin=dict(t=20, b=20, l=20, r=20),
-                    showlegend=False
-                )
-                st.plotly_chart(fig_p2, use_container_width=True)
-            else:
-                st.info("Données insuffisantes pour l'historique de productivité P2.")
 
         # --- GRAPHIQUE HEURE PAR HEURE (MOYENNES TRANSPARENTES + RECORD JAUNE) ---
         with st.container(border=True):
