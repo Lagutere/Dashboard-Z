@@ -32,7 +32,17 @@ st.markdown("""
 # Titre dans un bandeau de couleur
 st.markdown('<div class="main-title-banner">🐾 Dashboard Logistique & Préparation - Ziggy</div>', unsafe_allow_html=True)
 
-# --- 1. IMPORTATION DU CSV ---
+# --- 1. INITIALISATION DE LA MÉMOIRE (SESSION STATE) POUR LA PERSISTANCE ---
+if 'obj_colis_val' not in st.session_state:
+    st.session_state.obj_colis_val = "1500"
+if 'defi_val' not in st.session_state:
+    st.session_state.defi_val = "Zéro erreur de picking sur les références sensibles + Fluidité sur l'emballage."
+if 'amelioration_val' not in st.session_state:
+    st.session_state.amelioration_val = "Positif : Bonne cadence globale entre 8h et 11h. Amélioration : Réduire le temps de pause."
+if 'qualite_val' not in st.session_state:
+    st.session_state.qualite_val = "RAS ce matin. Vigilance sur les sacs percés."
+
+# --- 2. IMPORTATION DU CSV ---
 st.sidebar.header("📁 Données WMS / CSV")
 uploaded_file = st.sidebar.file_uploader("Importer le CSV quotidien", type=["csv"])
 
@@ -45,7 +55,7 @@ if uploaded_file is not None:
     
     df.columns = df.columns.str.strip()
 
-    # --- 2. SÉLECTION DES DATES ---
+    # --- SÉLECTION DES DATES ---
     df['Date_parsed'] = pd.to_datetime(df['Date'], errors='coerce', dayfirst=True)
     valid_dates = df['Date_parsed'].dropna().dt.date.unique()
     
@@ -116,7 +126,7 @@ if uploaded_file is not None:
                 fig_gauge.update_layout(height=135, margin=dict(t=5, b=5, l=10, r=10))
                 st.plotly_chart(fig_gauge, use_container_width=True)
 
-        # Encart Productivité P2
+        # Encart Productivité P2 (Arrondi à 1 chiffre après la virgule)
         col_prod_p2 = 'Productivité P2' if 'Productivité P2' in df.columns else [c for c in df.columns if 'Productivité P2' in str(c)][0]
         val_prod = pd.to_numeric(row_veille.get(col_prod_p2, 0), errors='coerce')
         if pd.isna(val_prod): val_prod = 0.0
@@ -132,7 +142,7 @@ if uploaded_file is not None:
             st.markdown(f"""
                 <div style="background-color: {prod_bg}; border: 2px solid {prod_color}; border-radius: 8px; padding: 10px; text-align: center; margin-top: 10px;">
                     <span style="font-size: 1.05em; font-weight: bold; color: {prod_color};">
-                        Productivité Réelle : {val_prod} (Objectif : {obj_prod}) -> {status_text}
+                        Productivité Réelle : {val_prod:.1f} (Objectif : {obj_prod:.1f}) -> {status_text}
                     </span>
                 </div>
             """, unsafe_allow_html=True)
@@ -181,26 +191,26 @@ if uploaded_file is not None:
                 st.info("Colonnes horaires non détectées.")
 
     # ==========================================
-    # COLONNE DROITE : PILOTAGE DU JOUR & DÉFIS
+    # COLONNE DROITE : PILOTAGE DU JOUR & DÉFIS (AVEC PERSISTANCE)
     # ==========================================
     with col_right:
         st.subheader("🎯 Pilotage du Jour & Alignement")
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🎯 Objectif Colis du Jour</div>", unsafe_allow_html=True)
-            obj_colis_jour = st.text_input("Saisir l'objectif de colis du jour", value="1500")
+            st.session_state.obj_colis_val = st.text_input("Saisir l'objectif de colis du jour", value=st.session_state.obj_colis_val)
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🔥 Défi Collectif & Focus du Jour</div>", unsafe_allow_html=True)
-            defi_texte = st.text_area("Saisir le défi collectif", value="Zéro erreur de picking sur les références sensibles + Fluidité sur l'emballage.")
+            st.session_state.defi_val = st.text_area("Saisir le défi collectif", value=st.session_state.defi_val)
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>✨ Point Positif & Amélioration de la Veille</div>", unsafe_allow_html=True)
-            amelioration_texte = st.text_area("À maintenir ou corriger", value="Positif : Bonne cadence globale entre 8h et 11h. Amélioration : Réduire le temps de pause.")
+            st.session_state.amelioration_val = st.text_area("À maintenir ou corriger", value=st.session_state.amelioration_val)
 
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🛡️ Encart Qualité & Incidents</div>", unsafe_allow_html=True)
-            qualite_texte = st.text_area("Notes qualité", value="RAS ce matin. Vigilance sur les sacs percés.")
+            st.session_state.qualite_val = st.text_area("Notes qualité", value=st.session_state.qualite_val)
 
         st.success("💡 **Conseil Point d'Équipe :** Utilisez cet écran à 8h30 pour fixer les caps avec l'équipe !")
 
