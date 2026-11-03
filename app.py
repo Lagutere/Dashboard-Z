@@ -297,7 +297,7 @@ if uploaded_file is not None:
 
 
     # ==========================================
-    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE
+    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (GRAPHIQUE AGRANDI HAUTEUR 340)
     # ==========================================
     mid_c1, mid_c2 = st.columns(2)
 
@@ -337,15 +337,14 @@ if uploaded_file is not None:
                     line=dict(color="#8b008b", width=2, dash="solid"), layer="below"
                 )
                 fig_p2.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=270,
+                    plot_bgcolor='white', paper_bgcolor='white', height=340,
                     margin=dict(t=20, b=20, l=20, r=20), showlegend=False
                 )
                 st.plotly_chart(fig_p2, use_container_width=True)
             else:
                 st.info("Données insuffisantes pour l'historique de productivité P2.")
 
-   
-# 2. Cadence Heure par Heure
+    # 2. Cadence Heure par Heure (Agrandit à height=340 avec heures propres en abscisse)
     with mid_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
@@ -357,8 +356,7 @@ if uploaded_file is not None:
             if len(hour_cols) > 0:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
                 
-                # Définition propre des heures fixes ou extraction nettoyée
-                # Si tu veux des libellés propres (7h, 8h, 9h...), tu peux utiliser une liste standard correspondante :
+                # Génération de libellés horaires propres (7h00, 8h00, etc.)
                 hours_labels = [f"{7 + i}h00" for i in range(len(hour_cols))]
 
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
@@ -402,9 +400,9 @@ if uploaded_file is not None:
                     text=row_hours.values, textposition='outside', marker_color=bar_colors
                 ))
                 
-                # IMPORTANT : On force l'axe X en type 'category' pour éviter l'affichage de nombres décimaux (0.3, 0.4...)
+                # Hauteur portée à 340 et axe X forcé en mode 'category' pour afficher les heures textuelles
                 fig.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=270,
+                    plot_bgcolor='white', paper_bgcolor='white', height=340,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
                     xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
