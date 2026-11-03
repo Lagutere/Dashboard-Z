@@ -44,7 +44,7 @@ if 'qualite_val' not in st.session_state:
 
 # Objectifs persistants pour le délai d'expédition
 if 'obj_delai_lundi' not in st.session_state:
-    st.session_state.obj_delai_lundi = 1.35
+    st.session_state.obj_delai_lundi = 1.40
 if 'obj_delai_autre' not in st.session_state:
     st.session_state.obj_delai_autre = 0.80
 
@@ -140,11 +140,14 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
-    # COLONNE 2 : Préparées à Temps
+    # COLONNE 2 : Préparées à Temps (Plafonnement jauge à 100% si > 100%)
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     if pd.isna(val_taux_raw): val_taux_raw = 0
     val_taux_pct = val_taux_raw * 100 if val_taux_raw <= 1 else val_taux_raw
+
+    # Valeur affichée sur la jauge plafonnée à 100 max pour l'affichage visuel
+    val_gauge_display = min(100.0, val_taux_pct)
 
     with top_c2:
         with st.container(border=True):
@@ -161,8 +164,9 @@ if uploaded_file is not None:
 
             fig_gauge = go.Figure(go.Indicator(
                 mode = "gauge+number",
-                value = val_taux_pct,
-                number = {'suffix': "%", 'font': {'color': gauge_bar_color, 'size': 26}},
+                value = val_gauge_display,
+                number = {'suffix': "%", 'valueformat': ".1f" if val_taux_pct > 100 else ".0f", 'font': {'color': gauge_bar_color, 'size': 26}},
+                title = {'text': f"<span style='font-size:12px; color:gray;'>Réel : {val_taux_pct:.1f}%</span>" if val_taux_pct > 100 else ""},
                 gauge = {
                     'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "gray"},
                     'bar': {'color': gauge_bar_color},
@@ -215,7 +219,7 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_j, use_container_width=True)
 
-    # COLONNE 3 : Délais d'Expédition (Style Photo 2 : Objectifs à gauche, Histogramme vertical à droite)
+    # COLONNE 3 : Délais d'Expédition
     col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
     raw_delai = row_veille.get(col_delai[0] if col_delai else '', 0)
     val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
@@ -231,7 +235,6 @@ if uploaded_file is not None:
         with st.container(border=True):
             st.markdown(f"<div style='background-color: {header_delai_bg}; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px; text-align: center;'>{header_delai_title}</div>", unsafe_allow_html=True)
             
-            # Disposition interne en 2 colonnes (Inputs à gauche, Graphique vertical à droite)
             sub_c_inputs, sub_c_chart = st.columns([1.1, 1])
 
             with sub_c_inputs:
