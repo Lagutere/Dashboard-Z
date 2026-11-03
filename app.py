@@ -32,7 +32,7 @@ st.markdown("""
 # Titre dans un bandeau de couleur
 st.markdown('<div class="main-title-banner">🐾 Dashboard Logistique & Préparation - Ziggy</div>', unsafe_allow_html=True)
 
-# --- 1. INITIALISATION DE LA MÉMOIRE (SESSION STATE) POUR LA PERSISTANCE ---
+# --- 1. INITIALISATION DE LA MÉMOIRE (SESSION STATE) ---
 if 'obj_colis_val' not in st.session_state:
     st.session_state.obj_colis_val = "1500"
 if 'defi_val' not in st.session_state:
@@ -166,32 +166,64 @@ if uploaded_file is not None:
             with d2:
                 st.metric("📦 Reste à faire (RAF)", val_raf_str)
 
-        # --- GRAPHIQUE HEURE PAR HEURE ---
+        # --- GRAPHIQUE HEURE PAR HEURE (AVEC LIGNE MOYENNE 30 JOURS) ---
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyenne 30j)</div>", unsafe_allow_html=True)
             
             hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
             if not hour_cols and len(df.columns) > 106:
                 hour_cols = df.columns[95:107]
 
             if len(hour_cols) > 0:
+                # Données du jour sélectionné
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
-                df_chart = pd.DataFrame({
-                    'Heure': [str(h).split()[0] for h in hour_cols],
-                    'Colis': row_hours.values
-                })
-                max_val_hour = df_chart['Colis'].max()
+                hours_labels = [str(h).split()[0] for h in hour_cols]
 
-                fig = px.bar(df_chart, x='Heure', y='Colis', text='Colis')
-                colors = ['#ffd700' if val == max_val_hour and val > 0 else '#1a4d2e' for val in df_chart['Colis']]
-                fig.update_traces(marker_color=colors, textposition='outside')
-                fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=270, margin=dict(t=20, b=20, l=20, r=20))
+                # Calcul de la moyenne des 30 derniers jours (cases CU à DD / hour_cols)
+                df_last_30 = df.tail(30)
+                mean_hours_30 = df_last_30[hour_cols].apply(pd.to_numeric, errors='coerce').mean().fillna(0)
+
+                # Création du graphique combiné (Barres du jour + Ligne moyenne 30j)
+                fig = go.Figure()
+
+                # 1. Ligne de la moyenne des 30 derniers jours (derrière les barres)
+                fig.add_trace(go.Scatter(
+                    x=hours_labels,
+                    y=mean_hours_30.values,
+                    mode='lines+markers',
+                    name='Moyenne 30 derniers jours',
+                    line=dict(color='rgba(26, 77, 46, 0.5)', width=3, dash='solid'),
+                    marker=dict(color='rgba(26, 77, 46, 0.6)', size=6)
+                ))
+
+                # 2. Histogramme des colis du jour
+                max_val_hour = row_hours.max()
+                bar_colors = ['#ffd700' if val == max_val_hour and val > 0 else '#1a4d2e' for val in row_hours.values]
+
+                fig.add_trace(go.Bar(
+                    x=hours_labels,
+                    y=row_hours.values,
+                    name=str(selected_date),
+                    text=row_hours.values,
+                    textposition='outside',
+                    marker_color=bar_colors
+                ))
+
+                # Mise en page du graphique
+                fig.update_layout(
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    height=290,
+                    margin=dict(t=20, b=20, l=20, r=20),
+                    showlegend=True,
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("Colonnes horaires non détectées.")
 
     # ==========================================
-    # COLONNE DROITE : PILOTAGE DU JOUR & DÉFIS (AVEC PERSISTANCE)
+    # COLONNE DROITE : PILOTAGE DU JOUR & DÉFIS (PERSISTANCE)
     # ==========================================
     with col_right:
         st.subheader("🎯 Pilotage du Jour & Alignement")
