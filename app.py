@@ -94,20 +94,20 @@ if uploaded_file is not None:
     obj_temps_actif = st.session_state.obj_temps_lundi if is_lundi else st.session_state.obj_temps_autre
 
     # ==========================================
-    # BLOC 1 : INDICATEURS DU HAUT (COLIS, PRÉPARÉES À TEMPS, DÉLAIS)
+    # BLOC 1 : INDICATEURS DU HAUT (3 COLONNES)
     # ==========================================
     st.subheader("📊 Bilan & Indicateurs de la Veille")
 
     top_c1, top_c2, top_c3 = st.columns(3)
 
-    # 1. Colis Expédiés
-    col_colis_exp = 'COLIS préparés (Shipment)' if 'COLIS préparés (Shipment)' in df.columns else df.columns[11]
-    val_colis = pd.to_numeric(row_veille.get(col_colis_exp, 0), errors='coerce')
-    if pd.isna(val_colis): val_colis = 0
-    max_colis = pd.to_numeric(df[col_colis_exp], errors='coerce').max()
-    is_record_colis = (val_colis >= max_colis) and (val_colis > 0)
-
+    # COLONNE 1 : Colis Expédiés EN HAUT + Reste à Fabriquer (Camembert) EN DESSOUS
     with top_c1:
+        col_colis_exp = 'COLIS préparés (Shipment)' if 'COLIS préparés (Shipment)' in df.columns else df.columns[11]
+        val_colis = pd.to_numeric(row_veille.get(col_colis_exp, 0), errors='coerce')
+        if pd.isna(val_colis): val_colis = 0
+        max_colis = pd.to_numeric(df[col_colis_exp], errors='coerce').max()
+        is_record_colis = (val_colis >= max_colis) and (val_colis > 0)
+
         bg_header = "#b8860b" if is_record_colis else "#1a4d2e"
         title_text = "🏆 RECORD COLIS EXPÉDIÉS" if is_record_colis else "📦 Colis Expédiés"
         with st.container(border=True):
@@ -115,7 +115,33 @@ if uploaded_file is not None:
             st.markdown(f"<h1 style='color: {bg_header}; text-align: center; font-size: 2.2em; margin: 0;'>{val_colis:,.0f}</h1>", unsafe_allow_html=True)
             st.markdown(f"<p style='text-align: center; color: #666; margin: 5px 0 0 0;'>Max historique : {max_colis:,.0f}</p>", unsafe_allow_html=True)
 
-    # 2. Préparées à Temps (Demi-jauge + Objectifs empilés + Graph J-3 à J+1)
+        # Encart Camembert RAF en dessous de Colis Expédiés
+        col_n = 'Colis Expédiés physiquement' if 'Colis Expédiés physiquement' in df.columns else df.columns[13]
+        col_p = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
+
+        val_fabrique = pd.to_numeric(row_veille.get(col_n, 0), errors='coerce')
+        if pd.isna(val_fabrique): val_fabrique = 0
+        val_raf = pd.to_numeric(row_veille.get(col_p, 0), errors='coerce')
+        if pd.isna(val_raf): val_raf = 0
+
+        with st.container(border=True):
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📦 Reste à Fabriquer (Commandes)</div>", unsafe_allow_html=True)
+            
+            fig_donut = go.Figure(data=[go.Pie(
+                labels=['Fabriqué (Cde)', 'Restant à fabriquer / RAF (Cde)'],
+                values=[val_fabrique, val_raf],
+                hole=.6,
+                marker_colors=['#1a4d2e', '#ff9999'],
+                textinfo='label+value',
+                hoverinfo='label+value'
+            )])
+            fig_donut.update_layout(
+                height=195, margin=dict(t=5, b=5, l=5, r=5), showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.25, xanchor="center", x=0.5)
+            )
+            st.plotly_chart(fig_donut, use_container_width=True)
+
+    # COLONNE 2 : Préparées à Temps (Demi-jauge + Objectifs empilés + Mini-histo % de J-3 à J+1)
     col_taux_temps = 'KPI : % CDES préparées à temps' if 'KPI : % CDES préparées à temps' in df.columns else df.columns[15]
     val_taux_raw = pd.to_numeric(row_veille.get(col_taux_temps, 0), errors='coerce')
     val_taux_pct = val_taux_raw * 100 if val_taux_raw <= 1 else val_taux_raw
@@ -124,7 +150,6 @@ if uploaded_file is not None:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; text-align: center; margin-bottom: 5px;'>⏱️ Préparées à Temps</div>", unsafe_allow_html=True)
             
-            # Objectifs l'un au-dessus de l'autre
             st.session_state.obj_temps_lundi = st.number_input("Obj. Lundi (%)", value=st.session_state.obj_temps_lundi, step=1.0)
             st.session_state.obj_temps_autre = st.number_input("Obj. Autre (%)", value=st.session_state.obj_temps_autre, step=1.0)
 
@@ -145,26 +170,26 @@ if uploaded_file is not None:
                     ]
                 }
             ))
-            fig_gauge.update_layout(height=95, margin=dict(t=0, b=0, l=5, r=5))
+            fig_gauge.update_layout(height=85, margin=dict(t=0, b=0, l=5, r=5))
             st.plotly_chart(fig_gauge, use_container_width=True)
 
-            # Mini histogramme à 100% de J-3 à J+1 (cases U à Y / colonnes J-4 à J+1 ou équivalent)
-            # Recherche des colonnes J-3, J-2, J-1, J+0, J+1 (indices 19 à 23 environ)
+            # Mini histogramme J-3 à J+1 (colonnes U à Y / index 18 à 22 ou colonnes explicitées J-3, J-2, J-1, J+0, J+1)
             j_cols = [c for c in df.columns if c in ['J-3', 'J-2', 'J-1', 'J+0', 'J+1'] or any(k in str(c) for k in ['J-3', 'J-2', 'J-1', 'J+0', 'J+1'])]
             if not j_cols and len(df.columns) > 23:
-                j_cols = df.columns[19:24]  # J-4 à J+1 traditionnellement
+                j_cols = df.columns[19:24]  # Correspond généralement à J-3, J-2, J-1, J+0, J+1
 
             if len(j_cols) > 0:
-                j_vals = row_veille[j_cols].apply(pd.to_numeric, errors='coerce').fillna(0).values
-                j_labels = [str(c).replace('.1', '') for c in j_cols]
+                raw_j_vals = row_veille[j_cols].apply(pd.to_numeric, errors='coerce').fillna(0).values
+                # Conversion en % si les données sont des proportions entre 0 et 1
+                j_vals = [v * 100 if v <= 1 else v for v in raw_j_vals]
+                j_labels = ['J-3', 'J-2', 'J-1', 'J+0', 'J+1'] if len(j_cols) == 5 else [str(c).replace('.1', '') for c in j_cols]
                 
-                # Normalisation en % si nécessaire ou affichage direct
                 fig_j = go.Figure()
                 fig_j.add_trace(go.Bar(x=j_labels, y=[100]*len(j_labels), marker_color='#e0e0e0', hoverinfo='skip', name='Reste'))
-                fig_j.add_trace(go.Bar(x=j_labels, y=j_vals, marker_color='#1a4d2e', text=[f"{v:.0f}%" if v<=100 else f"{v}" for v in j_vals], textposition='inside', name='Réalisé'))
+                fig_j.add_trace(go.Bar(x=j_labels, y=j_vals, marker_color='#1a4d2e', text=[f"{v:.0f}%" for v in j_vals], textposition='inside', name='Réalisé'))
                 fig_j.update_layout(
                     barmode='overlay',
-                    height=110,
+                    height=100,
                     margin=dict(t=5, b=5, l=5, r=5),
                     showlegend=False,
                     xaxis=dict(showgrid=False),
@@ -172,7 +197,7 @@ if uploaded_file is not None:
                 )
                 st.plotly_chart(fig_j, use_container_width=True)
 
-    # 3. Délais d'Expédition
+    # COLONNE 3 : Délais d'Expédition
     col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
     raw_delai = row_veille.get(col_delai[0] if col_delai else '', 0)
     val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
@@ -188,7 +213,6 @@ if uploaded_file is not None:
         with st.container(border=True):
             st.markdown(f"<div style='background-color: {header_delai_bg}; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px; text-align: center;'>{header_delai_title}</div>", unsafe_allow_html=True)
             
-            # Objectifs l'un au-dessus de l'autre
             st.session_state.obj_delai_lundi = st.number_input("Obj. Lundi (<)", value=st.session_state.obj_delai_lundi, step=0.05)
             st.session_state.obj_delai_autre = st.number_input("Obj. Autre jour (<)", value=st.session_state.obj_delai_autre, step=0.05)
 
@@ -229,7 +253,7 @@ if uploaded_file is not None:
 
 
     # ==========================================
-    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (SUR LA MÊME LIGNE)
+    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (MÊME HAUTEUR)
     # ==========================================
     mid_c1, mid_c2 = st.columns(2)
 
@@ -276,7 +300,7 @@ if uploaded_file is not None:
             else:
                 st.info("Données insuffisantes pour l'historique de productivité P2.")
 
-    # 2. Cadence Heure par Heure
+    # 2. Cadence Heure par Heure (Même hauteur height=270)
     with mid_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
@@ -338,37 +362,9 @@ if uploaded_file is not None:
             else:
                 st.info("Colonnes horaires non détectées.")
 
-    # ==========================================
-    # BLOC 3 : CAMEMBERT (RAF)
-    # ==========================================
-    col_n = 'Colis Expédiés physiquement' if 'Colis Expédiés physiquement' in df.columns else df.columns[13]
-    col_p = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
-
-    val_fabrique = pd.to_numeric(row_veille.get(col_n, 0), errors='coerce')
-    if pd.isna(val_fabrique): val_fabrique = 0
-    val_raf = pd.to_numeric(row_veille.get(col_p, 0), errors='coerce')
-    if pd.isna(val_raf): val_raf = 0
-
-    with st.container(border=True):
-        st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📦 Reste à Fabriquer / Répartition (Commandes)</div>", unsafe_allow_html=True)
-        
-        fig_donut = go.Figure(data=[go.Pie(
-            labels=['Fabriqué (Cde)', 'Restant à fabriquer / RAF (Cde)'],
-            values=[val_fabrique, val_raf],
-            hole=.6,
-            marker_colors=['#1a4d2e', '#ff9999'],
-            textinfo='label+value',
-            hoverinfo='label+value'
-        )])
-        fig_donut.update_layout(
-            height=240, margin=dict(t=10, b=10, l=10, r=10), showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
-        )
-        st.plotly_chart(fig_donut, use_container_width=True)
-
 
     # ==========================================
-    # BLOC 4 : ENCADRÉS DE PILOTAGE DU JOUR (EN DESSOUS)
+    # BLOC 3 : ENCADRÉS DE PILOTAGE DU JOUR (EN DESSOUS)
     # ==========================================
     st.markdown("---")
     st.subheader("🎯 Pilotage du Jour & Alignement")
