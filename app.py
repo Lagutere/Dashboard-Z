@@ -166,9 +166,9 @@ if uploaded_file is not None:
             with d2:
                 st.metric("📦 Reste à faire (RAF)", val_raf_str)
 
-        # --- GRAPHIQUE HEURE PAR HEURE (AVEC LIGNE DE MOYENNE GLOBALE COLONNE AI - JOURS OUVRÉS) ---
+        # --- GRAPHIQUE HEURE PAR HEURE (AVEC LIGNE DE MOYENNE EXCLUANT LES ZÉROS & WE) ---
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyenne Colonne AI - Jours Ouvrés)</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyenne 30j ouvrés hors zéros)</div>", unsafe_allow_html=True)
             
             hour_cols = [c for c in df.columns if any(h in str(c) for h in ['05:00', '06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'])]
             if not hour_cols and len(df.columns) > 106:
@@ -178,23 +178,23 @@ if uploaded_file is not None:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
                 hours_labels = [str(h).split()[0] for h in hour_cols]
 
-                # Filtrage sur les 30 derniers jours en excluant les week-ends (jours sans production)
+                # Filtrage : Jours ouvrés (lundi au vendredi) sur les 30 derniers jours, en excluant les valeurs égales à 0 ou NaN
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
                 df_working = df[df['day_of_week'] < 5].tail(30)
-
-                # Colonne AI (index 34: 'Nombre d'heures packing' ou colonne correspondante)
-                col_ai = df.columns[34] if len(df.columns) > 34 else 'Nombre d\'heures packing'
-                mean_ai_30 = pd.to_numeric(df_working[col_ai], errors='coerce').mean()
-                if pd.isna(mean_ai_30): mean_ai_30 = 0.0
+                
+                col_target = 'Colis/h préparés' if 'Colis/h préparés' in df.columns else df.columns[33]
+                s_vals = pd.to_numeric(df_working[col_target], errors='coerce')
+                mean_filtered_30 = s_vals[s_vals > 0].mean()
+                if pd.isna(mean_filtered_30): mean_filtered_30 = 146.0  # Valeur de secours si besoin
 
                 fig = go.Figure()
 
-                # 1. Ligne droite horizontale représentant la moyenne de la colonne AI sur les 30 derniers jours ouvrés
+                # 1. Ligne droite horizontale de la moyenne filtrée
                 fig.add_trace(go.Scatter(
                     x=hours_labels,
-                    y=[mean_ai_30] * len(hours_labels),
+                    y=[mean_filtered_30] * len(hours_labels),
                     mode='lines',
-                    name='Moyenne Col. AI (30j ouvré)',
+                    name=f'Moyenne 30j ouvrés ({mean_filtered_30:.0f})',
                     line=dict(color='rgba(26, 77, 46, 0.6)', width=3, dash='dash')
                 ))
 
