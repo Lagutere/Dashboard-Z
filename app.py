@@ -297,7 +297,7 @@ if uploaded_file is not None:
 
 
     # ==========================================
-    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (GRAPHIQUE AGRANDI HAUTEUR 340)
+    # BLOC 2 : PRODUCTIVITÉ P2 & CADENCE HEURE PAR HEURE (HAUTEURS HARMONISÉES À 270)
     # ==========================================
     mid_c1, mid_c2 = st.columns(2)
 
@@ -305,7 +305,7 @@ if uploaded_file is not None:
     val_prod = pd.to_numeric(row_veille.get(col_prod_p2, 0), errors='coerce')
     if pd.isna(val_prod): val_prod = 0.0
 
-    # 1. Productivité P2 (15 Derniers Jours)
+    # 1. Productivité P2 (15 Derniers Jours - Hauteur réduite à 270 pour correspondre à droite)
     with mid_c1:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📊 Productivité P2 - 15 Derniers Jours</div>", unsafe_allow_html=True)
@@ -337,14 +337,14 @@ if uploaded_file is not None:
                     line=dict(color="#8b008b", width=2, dash="solid"), layer="below"
                 )
                 fig_p2.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=340,
+                    plot_bgcolor='white', paper_bgcolor='white', height=270,
                     margin=dict(t=20, b=20, l=20, r=20), showlegend=False
                 )
                 st.plotly_chart(fig_p2, use_container_width=True)
             else:
                 st.info("Données insuffisantes pour l'historique de productivité P2.")
 
-    # 2. Cadence Heure par Heure (Agrandit à height=340 avec heures propres en abscisse)
+    # 2. Cadence Heure par Heure (Hauteur à 270)
     with mid_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyennes 30j & Jour)</div>", unsafe_allow_html=True)
@@ -400,9 +400,8 @@ if uploaded_file is not None:
                     text=row_hours.values, textposition='outside', marker_color=bar_colors
                 ))
                 
-                # Hauteur portée à 340 et axe X forcé en mode 'category' pour afficher les heures textuelles
                 fig.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=340,
+                    plot_bgcolor='white', paper_bgcolor='white', height=270,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
                     xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
