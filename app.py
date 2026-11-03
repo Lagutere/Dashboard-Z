@@ -26,7 +26,7 @@ st.markdown("""
 
     h2, h3 { color: #1a4d2e !important; font-family: 'Helvetica Neue', sans-serif; }
     
-    /* Style des cartes avec bandeau titre */
+    /* Style unifié des cartes avec bandeau intégré */
     .card-container {
         border: 2px solid #1a4d2e;
         border-radius: 10px;
@@ -38,14 +38,14 @@ st.markdown("""
     .card-header {
         background-color: #1a4d2e;
         color: white;
-        padding: 10px 15px;
+        padding: 12px 15px;
         font-weight: bold;
         font-size: 1.1em;
     }
     .card-header-gold {
         background-color: #b8860b;
         color: white;
-        padding: 10px 15px;
+        padding: 12px 15px;
         font-weight: bold;
         font-size: 1.1em;
     }
@@ -153,7 +153,7 @@ if uploaded_file is not None:
             st.plotly_chart(fig_gauge, use_container_width=True)
             st.markdown("</div></div>", unsafe_allow_html=True)
 
-        # Encart Productivité P2
+        # Encart Productivité P2 (Unifié dans la carte)
         col_prod_p2 = 'Productivité P2' if 'Productivité P2' in df.columns else [c for c in df.columns if 'Productivité P2' in str(c)][0]
         val_prod = pd.to_numeric(row_veille.get(col_prod_p2, 0), errors='coerce')
         if pd.isna(val_prod): val_prod = 0.0
@@ -180,7 +180,7 @@ if uploaded_file is not None:
             </div>
         """, unsafe_allow_html=True)
 
-        # Encart Délais & RAF (Arrondi délai à 1 chiffre après la virgule)
+        # Encart Délais & RAF (RAF formaté avec 0 chiffre après la virgule)
         col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
         col_raf = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
         
@@ -188,7 +188,8 @@ if uploaded_file is not None:
         val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
         val_delai_str = f"{val_delai_num:.1f}" if not pd.isna(val_delai_num) else str(raw_delai)
         
-        val_raf_num = row_veille.get(col_raf, 0)
+        val_raf_raw = pd.to_numeric(row_veille.get(col_raf, 0), errors='coerce')
+        val_raf_str = f"{val_raf_raw:,.0f}".replace(",", " ") if not pd.isna(val_raf_raw) else "0"
 
         st.markdown("""
             <div class="card-container">
@@ -199,7 +200,7 @@ if uploaded_file is not None:
         with d1:
             st.metric("⏱️ Délai Moyen Expédition", val_delai_str)
         with d2:
-            st.metric("📦 Reste à faire (RAF)", val_raf_num)
+            st.metric("📦 Reste à faire (RAF)", val_raf_str)
         st.markdown("</div></div>", unsafe_allow_html=True)
 
         # --- GRAPHIQUE HEURE PAR HEURE ---
