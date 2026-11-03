@@ -42,6 +42,12 @@ if 'amelioration_val' not in st.session_state:
 if 'qualite_val' not in st.session_state:
     st.session_state.qualite_val = "RAS ce matin. Vigilance sur les sacs percés."
 
+# Objectifs de délai d'expédition persistants
+if 'obj_delai_lundi' not in st.session_state:
+    st.session_state.obj_delai_lundi = 1.35
+if 'obj_delai_autre' not in st.session_state:
+    st.session_state.obj_delai_autre = 0.80
+
 # --- 2. IMPORTATION DU CSV ---
 st.sidebar.header("📁 Données WMS / CSV")
 uploaded_file = st.sidebar.file_uploader("Importer le CSV quotidien", type=["csv"])
@@ -72,6 +78,11 @@ if uploaded_file is not None:
         row_veille = df.iloc[-1]
     else:
         row_veille = df_selected.iloc[0]
+
+    # Détermination du jour de la semaine (0 = Lundi, etc.)
+    day_of_week = pd.to_datetime(selected_date).dayofweek
+    is_lundi = (day_of_week == 0)
+    obj_actif = st.session_state.obj_delai_lundi if is_lundi else st.session_state.obj_delai_autre
 
     # --- 3. MISE EN PAGE PRINCIPALE : 2 COLONNES ---
     col_left, col_right = st.columns([1.3, 1])
@@ -147,26 +158,79 @@ if uploaded_file is not None:
                 </div>
             """, unsafe_allow_html=True)
 
-        # Encart Délais & RAF
+        # Encart Délais d'expédition (Histogramme à plat)
         col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
-        col_raf = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
-        
         raw_delai = row_veille.get(col_delai[0] if col_delai else '', 0)
         val_delai_num = pd.to_numeric(raw_delai, errors='coerce')
-        val_delai_str = f"{val_delai_num:.1f}" if not pd.isna(val_delai_num) else str(raw_delai)
-        
-        val_raf_raw = pd.to_numeric(row_veille.get(col_raf, 0), errors='coerce')
-        val_raf_str = f"{val_raf_raw:,.0f}".replace(",", " ") if not pd.isna(val_raf_raw) else "0"
+        if pd.isna(val_delai_num): val_delai_num = 0.0
 
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🚚 Délais & Reste à Faire (RAF)</div>", unsafe_allow_html=True)
-            d1, d2 = st.columns(2)
-            with d1:
-                st.metric("⏱️ Délai Moyen Expédition", val_delai_str)
-            with d2:
-                st.metric("📦 Reste à faire (RAF)", val_raf_str)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🚚 Délais d'Expédition</div>", unsafe_allow_html=True)
+            
+            col_o1, col_o2 = st.columns(2)
+            with col_o1:
+                st.session_state.obj_delai_lundi = st.number_input("🎯 Obj. Lundi (<)", value=st.session_state.obj_delai_lundi, step=0.05)
+            with col_o2:
+                st.session_state.obj_delai_autre = st.number_input("🎯 Obj. Autre jour (<)", value=st.session_state.obj_delai_autre, step=0.05)
 
-        # --- GRAPHIQUE HEURE PAR HEURE (AVEC LIGNE DE MOYENNE EXCLUANT LES ZÉROS & WE) ---
+            is_delai_ok = val_delai_num <= obj_actif
+            bar_color = "#2e7d32" if is_delai_ok else "#8b0000"
+
+            fig_bar = go.Figure()
+            fig_bar.add_trace(go.Bar(
+                x=[val_delai_num],
+                y=['Délai Réel'],
+                orientation='h',
+                marker_color=bar_color,
+                text=f"{val_delai_num:.1f} (Obj: < {obj_actif})",
+                textposition='inside',
+                insidetextanchor='middle',
+                textfont=dict(color='white', size=14, family='Arial Black')
+            ))
+            fig_bar.update_layout(
+                xaxis=dict(range=[0, max(2.0, val_delai_num * 1.2)], showgrid=False, zeroline=False),
+                yaxis=dict(showgrid=False),
+                height=80,
+                margin=dict(t=5, b=5, l=5, r=5),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                showlegend=False
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+            status_delai_txt = "✅ OK" if is_delai_ok else "❌ Dépassé"
+            st.markdown(f"**Délai Réel :** {val_delai_num:.1f} ({status_delai_txt})")
+
+        # --- ENCART RESTANT À FAIRE (DONUT CHART / CAMEMBERT CREUX : COL N vs COL P) ---
+        col_n = 'Colis Expédiés physiquement' if 'Colis Expédiés physiquement' in df.columns else df.columns[13]
+        col_p = 'RAF (Cdes)' if 'RAF (Cdes)' in df.columns else df.columns[14]
+
+        val_fabrique = pd.to_numeric(row_veille.get(col_n, 0), errors='coerce')
+        if pd.isna(val_fabrique): val_fabrique = 0
+        
+        val_raf = pd.to_numeric(row_veille.get(col_p, 0), errors='coerce')
+        if pd.isna(val_raf): val_raf = 0
+
+        with st.container(border=True):
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📦 Reste à Fabriqué / Répartition (Fabriqué vs RAF)</div>", unsafe_allow_html=True)
+            
+            fig_donut = go.Figure(data=[go.Pie(
+                labels=['Fabriqué (Col. N)', 'Restant à fabriquer / RAF (Col. P)'],
+                values=[val_fabrique, val_raf],
+                hole=.6,
+                marker_colors=['#1a4d2e', '#e056fd'], # Vert foncé Ziggy et Rose peps
+                textinfo='label+value',
+                hoverinfo='label+value'
+            )])
+            fig_donut.update_layout(
+                height=240,
+                margin=dict(t=10, b=10, l=10, r=10),
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+            )
+            st.plotly_chart(fig_donut, use_container_width=True)
+
+        # --- GRAPHIQUE HEURE PAR HEURE (MOYENNE 30J OUVRÉS HORS ZÉROS) ---
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>📈 Cadence Heure par Heure (vs Moyenne 30j ouvrés hors zéros)</div>", unsafe_allow_html=True)
             
@@ -178,18 +242,15 @@ if uploaded_file is not None:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
                 hours_labels = [str(h).split()[0] for h in hour_cols]
 
-                # Filtrage : Jours ouvrés (lundi au vendredi) sur les 30 derniers jours, en excluant les valeurs égales à 0 ou NaN
                 df['day_of_week'] = df['Date_parsed'].dt.dayofweek
                 df_working = df[df['day_of_week'] < 5].tail(30)
                 
                 col_target = 'Colis/h préparés' if 'Colis/h préparés' in df.columns else df.columns[33]
                 s_vals = pd.to_numeric(df_working[col_target], errors='coerce')
                 mean_filtered_30 = s_vals[s_vals > 0].mean()
-                if pd.isna(mean_filtered_30): mean_filtered_30 = 146.0  # Valeur de secours si besoin
+                if pd.isna(mean_filtered_30): mean_filtered_30 = 146.0
 
                 fig = go.Figure()
-
-                # 1. Ligne droite horizontale de la moyenne filtrée
                 fig.add_trace(go.Scatter(
                     x=hours_labels,
                     y=[mean_filtered_30] * len(hours_labels),
@@ -198,7 +259,6 @@ if uploaded_file is not None:
                     line=dict(color='rgba(26, 77, 46, 0.6)', width=3, dash='dash')
                 ))
 
-                # 2. Histogramme des colis du jour
                 max_val_hour = row_hours.max()
                 bar_colors = ['#ffd700' if val == max_val_hour and val > 0 else '#1a4d2e' for val in row_hours.values]
 
