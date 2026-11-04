@@ -309,72 +309,19 @@ if uploaded_file is not None:
                 else:
                     j_vals.append(0.0)
 
-            # Calcul dynamique des commandes restantes pour J-3 à J+0
-            # Recherche des colonnes : Total commandes (colonne L / Index 11), Déjà fabriqué (colonne AD / Index 29), Préparées par jour (colonnes # CDES)
-            col_tot_cdes = df.columns[11] if len(df.columns) > 11 else None
-            col_fab_veille = df.columns[29] if len(df.columns) > 29 else None
-            
-            # Recherche des colonnes de commandes préparées de J-3 à J+0 dans la ligne de la veille
-            # Dans ton fichier, les colonnes # CDES pour J-3, J-2, J-1, J+0 sont généralement autour des indices 24 à 28
-            count_cols = []
-            for tj in ['J-3', 'J-2', 'J-1', 'J+0']:
-                m = [c for c in df.columns if tj.lower() in str(c).lower().replace(' ', '') and ('cdes' in str(c).lower() or '#' in str(c))]
-                if m:
-                    count_cols.append(m[0])
-                else:
-                    count_cols.append(None)
-            
-            # Fallback par index si non trouvés par nom exact
-            if len(count_cols) < 4 or any(c is None for c in count_cols):
-                if len(df.columns) > 28:
-                    count_cols = [df.columns[24], df.columns[25], df.columns[26], df.columns[27]]
-
-            total_cdes_veille = pd.to_numeric(row_veille.get(col_tot_cdes, 0), errors='coerce') if col_tot_cdes else 0
-            fab_veille_val = pd.to_numeric(row_veille.get(col_fab_veille, 0), errors='coerce') if col_fab_veille else 0
-            if pd.isna(total_cdes_veille): total_cdes_veille = 0
-            if pd.isna(fab_veille_val): fab_veille_val = 0
-
-            reste_vals = []
-            for i, c_col in enumerate(count_cols):
-                if i < 4 and c_col is not None and c_col in row_veille:
-                    prep_val = pd.to_numeric(row_veille[c_col], errors='coerce')
-                    if pd.isna(prep_val): prep_val = 0
-                    reste = total_cdes_veille - fab_veille_val - prep_val
-                    reste_vals.append(max(0, reste))
-                else:
-                    reste_vals.append(0)
-            reste_vals.append(0) # Pour J+1
-
-            # Séparation des textes en fonction de la position (dans le vert ou dans le gris) par rapport au taux de 100%
-            text_colors_inside = []
-            text_colors_outside = []
-            for v in j_vals:
-                if v > 50:  # Si la barre est grande, le texte dépasse dans la partie haute (grise)
-                    text_colors_inside.append('white')
-                    text_colors_outside.append('#1a4d2e')
-                else:
-                    text_colors_inside.append('white')
-                    text_colors_outside.append('#1a4d2e')
-
             fig_j = go.Figure()
-            # Barre de fond grise (100%) pour afficher le texte dans la zone grise
             fig_j.add_trace(go.Bar(
-                x=target_j_labels, y=[100]*5, marker_color='#e0e0e0', 
-                text=[f"{v:.0f}%<br><span style='font-size:10px; color:#8b0000; font-weight:bold;'>{int(r) if r > 0 else ''}</span>" if r > 0 else f"{v:.0f}%" for v, r in zip(j_vals, reste_vals)], 
-                textposition='outside', textfont=dict(color='#1a4d2e', size=13, family='Arial Black'),
-                hoverinfo='skip', showlegend=False
+                x=target_j_labels, y=[100]*5, marker_color='#e0e0e0', hoverinfo='skip', showlegend=False
             ))
-            # Barre verte par-dessus pour afficher le texte dans la zone verte
             fig_j.add_trace(go.Bar(
                 x=target_j_labels, y=j_vals, marker_color='#1a4d2e', 
-                text=[f"{v:.0f}%<br><span style='font-size:10px; color:#ffcccc; font-weight:bold;'>{int(r) if r > 0 else ''}</span>" if r > 0 else f"{v:.0f}%" for v, r in zip(j_vals, reste_vals)], 
-                textposition='inside', insidetextanchor='middle',
-                textfont=dict(color='white', size=13, family='Arial Black'), showlegend=False
+                text=[f"{v:.0f}%" for v in j_vals], textposition='inside', insidetextanchor='middle',
+                textfont=dict(color='white', size=12, family='Arial Black'), showlegend=False
             ))
             fig_j.update_layout(
-                barmode='overlay', height=125, margin=dict(t=25, b=5, l=5, r=5),
+                barmode='overlay', height=100, margin=dict(t=5, b=5, l=5, r=5),
                 xaxis=dict(showgrid=False, tickfont=dict(size=11, family='Arial Black')),
-                yaxis=dict(range=[0, 130], showgrid=False, visible=False),
+                yaxis=dict(range=[0, 100], showgrid=False, visible=False),
                 plot_bgcolor='white', paper_bgcolor='white'
             )
             st.plotly_chart(fig_j, use_container_width=True)
@@ -493,7 +440,7 @@ if uploaded_file is not None:
             
             hour_cols = [c for c in df.columns if any(h in str(c) for h in ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'])]
             if not hour_cols and len(df.columns) > 106:
-                hour_cols = df.columns[97:107]
+                hour_cols = df.columns[97:105]
 
             if len(hour_cols) > 0:
                 row_hours = row_veille[hour_cols].apply(pd.to_numeric, errors='coerce').fillna(0)
@@ -541,7 +488,7 @@ if uploaded_file is not None:
                 ))
                 
                 fig.update_layout(
-                    plot_bgcolor='white', paper_bgcolor='white', height=330,
+                    plot_bgcolor='white', paper_bgcolor='white', height=270,
                     margin=dict(t=25, b=20, l=20, r=70), showlegend=True,
                     xaxis=dict(type='category'),
                     legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1)
@@ -579,7 +526,7 @@ if uploaded_file is not None:
 
     st.markdown('</div>', unsafe_allow_html=True)  # Fin du fond de section Jour
 
-
+   
 
 else:
     st.info("👈 Veuillez importer votre fichier CSV quotidien via le menu de gauche.")
