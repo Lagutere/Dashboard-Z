@@ -155,8 +155,10 @@ if uploaded_file is not None:
     df_selected = df[df['Date_parsed'].dt.date == selected_date]
     
     if df_selected.empty:
+        idx_selected = len(df) - 1
         row_veille = df.iloc[-1]
     else:
+        idx_selected = df_selected.index[0]
         row_veille = df_selected.iloc[0]
 
     # Détermination du jour de la semaine (0 = Lundi, etc.)
@@ -309,75 +311,88 @@ if uploaded_file is not None:
                 else:
                     j_vals.append(0.0)
 
-            # Calcul dynamique des commandes restantes pour J-3 à J+0
-            # Recherche des colonnes : Total commandes (colonne L / Index 11), Déjà fabriqué (colonne AD / Index 29), Préparées par jour (colonnes # CDES)
-            col_tot_cdes = df.columns[11] if len(df.columns) > 11 else None
-            col_fab_veille = df.columns[29] if len(df.columns) > 29 else None
+            # Identification exacte des colonnes CSV
+            col_tot_cdes = df.columns[11] if len(df.columns) > 11 else None     # Colonne L (Total CDES)
+            col_fab_precedant = df.columns[29] if len(df.columns) > 29 else None # Colonne AD (Fabriqué veille)
             
-            # Recherche des colonnes de commandes préparées de J-3 à J+0 dans la ligne de la veille
-            # Dans ton fichier, les colonnes # CDES pour J-3, J-2, J-1, J+0 sont généralement autour des indices 24 à 28
-            count_cols = []
-            for tj in ['J-3', 'J-2', 'J-1', 'J+0']:
-                m = [c for c in df.columns if tj.lower() in str(c).lower().replace(' ', '') and ('cdes' in str(c).lower() or '#' in str(c))]
-                if m:
-                    count_cols.append(m[0])
-                else:
-                    count_cols.append(None)
-            
-            # Fallback par index si non trouvés par nom exact
-            if len(count_cols) < 4 or any(c is None for c in count_cols):
-                if len(df.columns) > 28:
-                    count_cols = [df.columns[24], df.columns[25], df.columns[26], df.columns[27]]
+            # Colonnes # CDES préparées de J-3 à J+0 (Colonnes AA à AD -> Index 26 à 29)
+            col_cdes_prep = [df.columns[26], df.columns[27], df.columns[28], df.columns[29]] if len(df.columns) > 29 else [None]*4
 
-            total_cdes_veille = pd.to_numeric(row_veille.get(col_tot_cdes, 0), errors='coerce') if col_tot_cdes else 0
-            fab_veille_val = pd.to_numeric(row_veille.get(col_fab_veille, 0), errors='coerce') if col_fab_veille else 0
-            if pd.isna(total_cdes_veille): total_cdes_veille = 0
-            if pd.isna(fab_veille_val): fab_veille_val = 0
+            # --- CALCUL EXACT ET DYNAMIQUE PAR JOUR ---
+            def calc_reste(offset, prep_col_idx):
+                target_row_idx = idx_selected + offset
+                if target_row_idx < 0 or target_row_idx >= len(df):
+                    return 0
+                r_target = df.iloc[target_row_idx]
+                
+                # Ligne précédente pour obtenir ce qui a déjà été fabriqué avant ce jour
+                prev_row_idx = target_row_idx - 1
+                fab_prev_val = 0
+                if prev_row_idx >= 0 and col_fab_precedant in df.columns:
+                    fab_prev_val = pd.to_numeric(df.iloc[prev_row_idx].get(col_fab_precedant, 0), errors='coerce')
+                    if pd.isna(fab_prev_val): fab_prev_val = 0
 
-            reste_vals = []
-            for i, c_col in enumerate(count_cols):
-                if i < 4 and c_col is not None and c_col in row_veille:
-                    prep_val = pd.to_numeric(row_veille[c_col], errors='coerce')
-                    if pd.isna(prep_val): prep_val = 0
-                    reste = total_cdes_veille - fab_veille_val - prep_val
-                    reste_vals.append(max(0, reste))
-                else:
-                    reste_vals.append(0)
-            reste_vals.append(0) # Pour J+1
+                tot_c = pd.to_numeric(r_target.get(col_tot_cdes, 0), errors='coerce')
+                if pd.isna(tot_c): tot_c = 0
+                
+                prep_c = pd.to_numeric(row_veille.get(col_cdes_prep[prep_col_idx], 0), errors='coerce')
+                if pd.isna(prep_c): prep_c = 0
 
-            # Séparation des textes en fonction de la position (dans le vert ou dans le gris) par rapport au taux de 100%
-            text_colors_inside = []
-            text_colors_outside = []
-            for v in j_vals:
-                if v > 50:  # Si la barre est grande, le texte dépasse dans la partie haute (grise)
-                    text_colors_inside.append('white')
-                    text_colors_outside.append('#1a4d2e')
+                res = tot_c - fab_prev_val - prep_c
+                return int(max(0, res))
+
+            reste_j3 = calc_reste(-3, 0)
+            reste_j2 = calc_reste(-2, 1)
+            reste_j1 = calc_reste(-1, 2)
+            reste_j0 = calc_reste(0, 3)
+            reste_j_plus1 = 0
+
+            reste_vals = [reste_j3, reste_j2, reste_j1, reste_j0, reste_j_plus1]
+
+            # --- CRÉATION DE L'HISTOGRAMME AVEC ÉTIQUETTES LISIBLES ET BICOLORES ---
+            annotations = []
+            for i, (label, v) in enumerate(zip(target_j_labels, j_vals)):
+                txt_pct = f"<b>{v:.0f}%</b>"
+                if v >= 20:
+                    # Affichage à l'intérieur de la barre verte en blanc
+                    annotations.append(dict(
+                        x=label, y=v / 2, text=txt_pct,
+                        showarrow=False, font=dict(color="white", size=15, family="Arial Black"),
+                        xanchor="center", yanchor="middle"
+                    ))
                 else:
-                    text_colors_inside.append('white')
-                    text_colors_outside.append('#1a4d2e')
+                    # Affichage au-dessus de la barre verte en vert foncé
+                    annotations.append(dict(
+                        x=label, y=v + 8, text=txt_pct,
+                        showarrow=False, font=dict(color="#1a4d2e", size=15, family="Arial Black"),
+                        xanchor="center", yanchor="bottom"
+                    ))
 
             fig_j = go.Figure()
-            # Barre de fond grise (100%) pour afficher le texte dans la zone grise
             fig_j.add_trace(go.Bar(
-                x=target_j_labels, y=[100]*5, marker_color='#e0e0e0', 
-                text=[f"{v:.0f}%<br><span style='font-size:10px; color:#8b0000; font-weight:bold;'>{int(r) if r > 0 else ''}</span>" if r > 0 else f"{v:.0f}%" for v, r in zip(j_vals, reste_vals)], 
-                textposition='outside', textfont=dict(color='#1a4d2e', size=13, family='Arial Black'),
-                hoverinfo='skip', showlegend=False
+                x=target_j_labels, y=[100]*5, marker_color='#e0e0e0', hoverinfo='skip', showlegend=False
             ))
-            # Barre verte par-dessus pour afficher le texte dans la zone verte
             fig_j.add_trace(go.Bar(
-                x=target_j_labels, y=j_vals, marker_color='#1a4d2e', 
-                text=[f"{v:.0f}%<br><span style='font-size:10px; color:#ffcccc; font-weight:bold;'>{int(r) if r > 0 else ''}</span>" if r > 0 else f"{v:.0f}%" for v, r in zip(j_vals, reste_vals)], 
-                textposition='inside', insidetextanchor='middle',
-                textfont=dict(color='white', size=13, family='Arial Black'), showlegend=False
+                x=target_j_labels, y=j_vals, marker_color='#1a4d2e', showlegend=False, hoverinfo='skip'
             ))
             fig_j.update_layout(
-                barmode='overlay', height=125, margin=dict(t=25, b=5, l=5, r=5),
-                xaxis=dict(showgrid=False, tickfont=dict(size=11, family='Arial Black')),
-                yaxis=dict(range=[0, 130], showgrid=False, visible=False),
+                barmode='overlay', height=105, margin=dict(t=15, b=5, l=5, r=5),
+                annotations=annotations,
+                xaxis=dict(showgrid=False, tickfont=dict(size=12, family='Arial Black')),
+                yaxis=dict(range=[0, 110], showgrid=False, visible=False),
                 plot_bgcolor='white', paper_bgcolor='white'
             )
             st.plotly_chart(fig_j, use_container_width=True)
+
+            # --- AFFICHAGE DU RESTE À FABRIQUER SOUS LES ÉTIQUETTES J-3 à J+1 ---
+            c_j3, c_j2, c_j1, c_j0, c_j1p = st.columns(5)
+            cols_list = [c_j3, c_j2, c_j1, c_j0, c_j1p]
+            for col_widget, r_val in zip(cols_list, reste_vals):
+                with col_widget:
+                    if r_val > 0:
+                        st.markdown(f"<div style='text-align: center; color: #8b0000; font-weight: bold; font-size: 0.9em; margin-top: -10px;'>{r_val}</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown("<div style='text-align: center; height: 20px;'></div>", unsafe_allow_html=True)
 
     # COLONNE 3 : Délais d'Expédition
     col_delai = [c for c in df.columns if 'Délai moyen d\'expé' in str(c) or 'Délai moyen d’expédition' in str(c)]
@@ -578,8 +593,6 @@ if uploaded_file is not None:
             st.text_area("Notes qualité", key='qualite_val', label_visibility="collapsed", on_change=update_config)
 
     st.markdown('</div>', unsafe_allow_html=True)  # Fin du fond de section Jour
-
-
 
 else:
     st.info("👈 Veuillez importer votre fichier CSV quotidien via le menu de gauche.")
