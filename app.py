@@ -312,56 +312,56 @@ if uploaded_file is not None:
                     j_vals.append(0.0)
 
             # Identification exacte des colonnes CSV
-            col_tot_cdes = df.columns[11] if len(df.columns) > 11 else None     # Colonne L (Total CDES)
+            col_tot_cdes = df.columns[11] if len(df.columns) > 11 else None     # Colonne L (Total CDES du jour)
             col_fab_precedant = df.columns[29] if len(df.columns) > 29 else None # Colonne AD (Fabriqué veille)
             
-            # Colonnes # CDES préparées de J-3 à J+0 (Colonnes AA à AD -> Index 26 à 29)
+            # Colonnes # CDES préparées de J-3 à J+0 (Index 26 à 29)
             col_cdes_prep = [df.columns[26], df.columns[27], df.columns[28], df.columns[29]] if len(df.columns) > 29 else [None]*4
 
-            # --- CALCUL EXACT ET DYNAMIQUE PAR JOUR ---
-            def calc_reste(offset, prep_col_idx):
+            # --- CORRECTION EXACTE DU CALCUL ---
+            def calc_reste_exact(offset, prep_col_idx):
                 target_row_idx = idx_selected + offset
                 if target_row_idx < 0 or target_row_idx >= len(df):
                     return 0
                 r_target = df.iloc[target_row_idx]
                 
-                # Ligne précédente pour obtenir ce qui a déjà été fabriqué avant ce jour
+                # 1. Total commandes du jour J-N
+                tot_c = pd.to_numeric(r_target.get(col_tot_cdes, 0), errors='coerce')
+                if pd.isna(tot_c): tot_c = 0
+                
+                # 2. Déjà fabriqué avant ce jour (ligne encore avant)
                 prev_row_idx = target_row_idx - 1
                 fab_prev_val = 0
                 if prev_row_idx >= 0 and col_fab_precedant in df.columns:
                     fab_prev_val = pd.to_numeric(df.iloc[prev_row_idx].get(col_fab_precedant, 0), errors='coerce')
                     if pd.isna(fab_prev_val): fab_prev_val = 0
 
-                tot_c = pd.to_numeric(r_target.get(col_tot_cdes, 0), errors='coerce')
-                if pd.isna(tot_c): tot_c = 0
-                
+                # 3. Préparé le jour J (dans la ligne sélectionnée actuelle)
                 prep_c = pd.to_numeric(row_veille.get(col_cdes_prep[prep_col_idx], 0), errors='coerce')
                 if pd.isna(prep_c): prep_c = 0
 
                 res = tot_c - fab_prev_val - prep_c
                 return int(max(0, res))
 
-            reste_j3 = calc_reste(-3, 0)
-            reste_j2 = calc_reste(-2, 1)
-            reste_j1 = calc_reste(-1, 2)
-            reste_j0 = calc_reste(0, 3)
+            reste_j3 = calc_reste_exact(-3, 0)
+            reste_j2 = calc_reste_exact(-2, 1)
+            reste_j1 = calc_reste_exact(-1, 2)
+            reste_j0 = calc_reste_exact(0, 3)
             reste_j_plus1 = 0
 
             reste_vals = [reste_j3, reste_j2, reste_j1, reste_j0, reste_j_plus1]
 
-            # --- CRÉATION DE L'HISTOGRAMME AVEC ÉTIQUETTES LISIBLES ET BICOLORES ---
+            # --- CRÉATION DE L'HISTOGRAMME AVEC TEXTE BICOLORE ---
             annotations = []
             for i, (label, v) in enumerate(zip(target_j_labels, j_vals)):
                 txt_pct = f"<b>{v:.0f}%</b>"
                 if v >= 20:
-                    # Affichage à l'intérieur de la barre verte en blanc
                     annotations.append(dict(
                         x=label, y=v / 2, text=txt_pct,
                         showarrow=False, font=dict(color="white", size=15, family="Arial Black"),
                         xanchor="center", yanchor="middle"
                     ))
                 else:
-                    # Affichage au-dessus de la barre verte en vert foncé
                     annotations.append(dict(
                         x=label, y=v + 8, text=txt_pct,
                         showarrow=False, font=dict(color="#1a4d2e", size=15, family="Arial Black"),
@@ -384,7 +384,7 @@ if uploaded_file is not None:
             )
             st.plotly_chart(fig_j, use_container_width=True)
 
-            # --- AFFICHAGE DU RESTE À FABRIQUER SOUS LES ÉTIQUETTES J-3 à J+1 ---
+            # --- AFFICHAGE SOUS LES ÉTIQUETTES J-3 à J+1 ---
             c_j3, c_j2, c_j1, c_j0, c_j1p = st.columns(5)
             cols_list = [c_j3, c_j2, c_j1, c_j0, c_j1p]
             for col_widget, r_val in zip(cols_list, reste_vals):
