@@ -280,7 +280,7 @@ if uploaded_file is not None:
                         {'range': [obj_temps_actif, 100], 'color': '#e8f5e9'}
                     ],
                     'threshold': {
-                        'line': {'color': "#8b008b", 'width': 4},
+                        'line': {'color": "#8b008b", 'width': 4},
                         'thickness': 0.8,
                         'value': obj_temps_actif
                     }
@@ -311,60 +311,68 @@ if uploaded_file is not None:
                 else:
                     j_vals.append(0.0)
 
-            # Identification exacte des colonnes CSV
-            col_tot_cdes = df.columns[11] if len(df.columns) > 11 else None     # Colonne L (Total CDES du jour)
-            col_fab_precedant = df.columns[29] if len(df.columns) > 29 else None # Colonne AD (Fabriqué veille)
-            
-            # Colonnes # CDES préparées de J-3 à J+0 (Index 26 à 29)
-            col_cdes_prep = [df.columns[26], df.columns[27], df.columns[28], df.columns[29]] if len(df.columns) > 29 else [None]*4
+            # --- CALCUL EXACT SELON TES FORMULES ---
+            col_l = df.columns[11] if len(df.columns) > 11 else None     # Nombre CDES (Col L)
+            col_ab = df.columns[28] if len(df.columns) > 28 else None    # J-3 prep (Col AB)
+            col_ac = df.columns[29] if len(df.columns) > 29 else None    # J-2 prep (Col AC)
+            col_ad = df.columns[30] if len(df.columns) > 30 else None    # J-1 prep (Col AD)
+            col_ae = df.columns[31] if len(df.columns) > 31 else None    # J+0 prep (Col AE)
+            col_32 = df.columns[32] if len(df.columns) > 32 else None    # Colonne juste après AE
 
-            # --- CORRECTION EXACTE DU CALCUL ---
-            def calc_reste_exact(offset, prep_col_idx):
-                target_row_idx = idx_selected + offset
-                if target_row_idx < 0 or target_row_idx >= len(df):
-                    return 0
-                r_target = df.iloc[target_row_idx]
-                
-                # 1. Total commandes du jour J-N
-                tot_c = pd.to_numeric(r_target.get(col_tot_cdes, 0), errors='coerce')
-                if pd.isna(tot_c): tot_c = 0
-                
-                # 2. Déjà fabriqué avant ce jour (ligne encore avant)
-                prev_row_idx = target_row_idx - 1
-                fab_prev_val = 0
-                if prev_row_idx >= 0 and col_fab_precedant in df.columns:
-                    fab_prev_val = pd.to_numeric(df.iloc[prev_row_idx].get(col_fab_precedant, 0), errors='coerce')
-                    if pd.isna(fab_prev_val): fab_prev_val = 0
+            def get_val(r, col):
+                if col is None or col not in r: return 0
+                v = pd.to_numeric(r[col], errors='coerce')
+                return 0 if pd.isna(v) else v
 
-                # 3. Préparé le jour J (dans la ligne sélectionnée actuelle)
-                prep_c = pd.to_numeric(row_veille.get(col_cdes_prep[prep_col_idx], 0), errors='coerce')
-                if pd.isna(prep_c): prep_c = 0
+            # 1. J+0 : Total(J+0) - Valeur_col32(J-1) - Préparé(J+0) -> ex: 1059 - 7 - 459 = 593
+            r_j0 = df.iloc[idx_selected] if 0 <= idx_selected < len(df) else row_veille
+            tot_j0 = get_val(r_j0, col_l)
+            val_32_prev = get_val(df.iloc[idx_selected - 1], col_32) if idx_selected - 1 >= 0 and col_32 else 0
+            prep_j0 = get_val(row_veille, col_ae)
+            reste_j0 = int(max(0, tot_j0 - val_32_prev - prep_j0))
 
-                res = tot_c - fab_prev_val - prep_c
-                return int(max(0, res))
+            # 2. J-1 : Total(J-1) - AE(J-1) - Préparé(J-1) -> ex: 1376 - 598 - 514 = 264
+            r_j1 = df.iloc[idx_selected - 1] if 0 <= idx_selected - 1 < len(df) else row_veille
+            tot_j1 = get_val(r_j1, col_l)
+            ae_j1 = get_val(r_j1, col_ae)
+            prep_j1 = get_val(row_veille, col_ad)
+            reste_j1 = int(max(0, tot_j1 - ae_j1 - prep_j1))
 
-            reste_j3 = calc_reste_exact(-3, 0)
-            reste_j2 = calc_reste_exact(-2, 1)
-            reste_j1 = calc_reste_exact(-1, 2)
-            reste_j0 = calc_reste_exact(0, 3)
+            # 3. J-2 : Total(J-2) - AD(J-1) - Préparé(J-2) -> ex: 581 - 446 - 126 = 9
+            r_j2 = df.iloc[idx_selected - 2] if 0 <= idx_selected - 2 < len(df) else row_veille
+            tot_j2 = get_val(r_j2, col_l)
+            r_j2_plus1 = df.iloc[idx_selected - 1] if 0 <= idx_selected - 1 < len(df) else row_veille
+            ad_j2_plus1 = get_val(r_j2_plus1, col_ad)
+            prep_j2 = get_val(row_veille, col_ac)
+            reste_j2 = int(max(0, tot_j2 - ad_j2_plus1 - prep_j2))
+
+            # 4. J-3
+            r_j3 = df.iloc[idx_selected - 3] if 0 <= idx_selected - 3 < len(df) else row_veille
+            tot_j3 = get_val(r_j3, col_l)
+            r_j3_plus2 = df.iloc[idx_selected - 1] if 0 <= idx_selected - 1 < len(df) else row_veille
+            ac_j3_plus2 = get_val(r_j3_plus2, col_ac)
+            prep_j3 = get_val(row_veille, col_ab)
+            reste_j3 = int(max(0, tot_j3 - ac_j3_plus2 - prep_j3))
+
             reste_j_plus1 = 0
-
             reste_vals = [reste_j3, reste_j2, reste_j1, reste_j0, reste_j_plus1]
 
-            # --- CRÉATION DE L'HISTOGRAMME AVEC TEXTE BICOLORE ---
+            # --- CRÉATION DE L'HISTOGRAMME AVEC TEXTE BICOLORE & TAILLE AGRANDIE ---
             annotations = []
             for i, (label, v) in enumerate(zip(target_j_labels, j_vals)):
                 txt_pct = f"<b>{v:.0f}%</b>"
-                if v >= 20:
+                if v >= 25:
+                    # Dans la barre verte -> écrit en blanc (taille 16)
                     annotations.append(dict(
                         x=label, y=v / 2, text=txt_pct,
-                        showarrow=False, font=dict(color="white", size=15, family="Arial Black"),
+                        showarrow=False, font=dict(color="white", size=16, family="Arial Black"),
                         xanchor="center", yanchor="middle"
                     ))
                 else:
+                    # Dans le fond gris au-dessus -> écrit en vert foncé (taille 16)
                     annotations.append(dict(
                         x=label, y=v + 8, text=txt_pct,
-                        showarrow=False, font=dict(color="#1a4d2e", size=15, family="Arial Black"),
+                        showarrow=False, font=dict(color="#1a4d2e", size=16, family="Arial Black"),
                         xanchor="center", yanchor="bottom"
                     ))
 
@@ -376,10 +384,10 @@ if uploaded_file is not None:
                 x=target_j_labels, y=j_vals, marker_color='#1a4d2e', showlegend=False, hoverinfo='skip'
             ))
             fig_j.update_layout(
-                barmode='overlay', height=105, margin=dict(t=15, b=5, l=5, r=5),
+                barmode='overlay', height=115, margin=dict(t=20, b=5, l=5, r=5),
                 annotations=annotations,
                 xaxis=dict(showgrid=False, tickfont=dict(size=12, family='Arial Black')),
-                yaxis=dict(range=[0, 110], showgrid=False, visible=False),
+                yaxis=dict(range=[0, 115], showgrid=False, visible=False),
                 plot_bgcolor='white', paper_bgcolor='white'
             )
             st.plotly_chart(fig_j, use_container_width=True)
@@ -390,7 +398,7 @@ if uploaded_file is not None:
             for col_widget, r_val in zip(cols_list, reste_vals):
                 with col_widget:
                     if r_val > 0:
-                        st.markdown(f"<div style='text-align: center; color: #8b0000; font-weight: bold; font-size: 0.9em; margin-top: -10px;'>{r_val}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align: center; color: #8b0000; font-weight: bold; font-size: 0.95em; margin-top: -5px;'>{r_val}</div>", unsafe_allow_html=True)
                     else:
                         st.markdown("<div style='text-align: center; height: 20px;'></div>", unsafe_allow_html=True)
 
