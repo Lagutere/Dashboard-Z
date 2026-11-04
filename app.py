@@ -280,7 +280,7 @@ if uploaded_file is not None:
                         {'range': [obj_temps_actif, 100], 'color': '#e8f5e9'}
                     ],
                     'threshold': {
-                        'line': {'color": "#8b008b", 'width': 4},
+                        'line': {'color': "#8b008b", 'width': 4},
                         'thickness': 0.8,
                         'value': obj_temps_actif
                     }
@@ -324,21 +324,21 @@ if uploaded_file is not None:
                 v = pd.to_numeric(r[col], errors='coerce')
                 return 0 if pd.isna(v) else v
 
-            # 1. J+0 : Total(J+0) - Valeur_col32(J-1) - Préparé(J+0) -> ex: 1059 - 7 - 459 = 593
+            # 1. J+0 : Total(J+0) - Valeur_col32(J-1) - Préparé(J+0)
             r_j0 = df.iloc[idx_selected] if 0 <= idx_selected < len(df) else row_veille
             tot_j0 = get_val(r_j0, col_l)
             val_32_prev = get_val(df.iloc[idx_selected - 1], col_32) if idx_selected - 1 >= 0 and col_32 else 0
             prep_j0 = get_val(row_veille, col_ae)
             reste_j0 = int(max(0, tot_j0 - val_32_prev - prep_j0))
 
-            # 2. J-1 : Total(J-1) - AE(J-1) - Préparé(J-1) -> ex: 1376 - 598 - 514 = 264
+            # 2. J-1 : Total(J-1) - AE(J-1) - Préparé(J-1)
             r_j1 = df.iloc[idx_selected - 1] if 0 <= idx_selected - 1 < len(df) else row_veille
             tot_j1 = get_val(r_j1, col_l)
             ae_j1 = get_val(r_j1, col_ae)
             prep_j1 = get_val(row_veille, col_ad)
             reste_j1 = int(max(0, tot_j1 - ae_j1 - prep_j1))
 
-            # 3. J-2 : Total(J-2) - AD(J-1) - Préparé(J-2) -> ex: 581 - 446 - 126 = 9
+            # 3. J-2 : Total(J-2) - AD(J-1) - Préparé(J-2)
             r_j2 = df.iloc[idx_selected - 2] if 0 <= idx_selected - 2 < len(df) else row_veille
             tot_j2 = get_val(r_j2, col_l)
             r_j2_plus1 = df.iloc[idx_selected - 1] if 0 <= idx_selected - 1 < len(df) else row_veille
@@ -362,14 +362,12 @@ if uploaded_file is not None:
             for i, (label, v) in enumerate(zip(target_j_labels, j_vals)):
                 txt_pct = f"<b>{v:.0f}%</b>"
                 if v >= 25:
-                    # Dans la barre verte -> écrit en blanc (taille 16)
                     annotations.append(dict(
                         x=label, y=v / 2, text=txt_pct,
                         showarrow=False, font=dict(color="white", size=16, family="Arial Black"),
                         xanchor="center", yanchor="middle"
                     ))
                 else:
-                    # Dans le fond gris au-dessus -> écrit en vert foncé (taille 16)
                     annotations.append(dict(
                         x=label, y=v + 8, text=txt_pct,
                         showarrow=False, font=dict(color="#1a4d2e", size=16, family="Arial Black"),
