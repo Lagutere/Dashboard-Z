@@ -533,6 +533,11 @@ if uploaded_file is not None:
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🔥 Défi Collectif & Focus du Jour</div>", unsafe_allow_html=True)
             st.text_area("Saisir le défi collectif", key='defi_val', label_visibility="collapsed", on_change=update_config)
 
+            with st.container(border=True):
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🔆 Informations d'équipe</div>", unsafe_allow_html=True)
+            st.text_area("Saisir Infos", key='defi_val', label_visibility="collapsed", on_change=update_config)
+
+    
     with bot_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>✨ Point Positif & Amélioration de la Veille</div>", unsafe_allow_html=True)
