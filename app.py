@@ -161,7 +161,7 @@ if uploaded_file is not None:
         idx_selected = df_selected.index[0]
         row_veille = df_selected.iloc[0]
 
-    # Détermination du jour de la semaine (0 = Lundi, etc.)
+    # Détermination du jour de la semaine (0 = Lundi, 1 = Mardi, etc.)
     day_of_week = pd.to_datetime(selected_date).dayofweek
     is_lundi = (day_of_week == 0)
 
@@ -182,8 +182,19 @@ if uploaded_file is not None:
         col_colis_exp = 'COLIS préparés (Shipment)' if 'COLIS préparés (Shipment)' in df.columns else df.columns[11]
         val_colis = pd.to_numeric(row_veille.get(col_colis_exp, 0), errors='coerce')
         if pd.isna(val_colis): val_colis = 0
+        
+        # Record global
         max_colis = pd.to_numeric(df[col_colis_exp], errors='coerce').max()
         if pd.isna(max_colis) or max_colis == 0: max_colis = 1646
+
+        # Calcul du record spécifique au jour de la semaine (ex: tous les mardis)
+        df['temp_dow'] = df['Date_parsed'].dt.dayofweek
+        df_same_dow = df[df['temp_dow'] == day_of_week]
+        max_colis_dow = pd.to_numeric(df_same_dow[col_colis_exp], errors='coerce').max()
+        if pd.isna(max_colis_dow) or max_colis_dow == 0: max_colis_dow = max_colis
+
+        jours_noms = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
+        nom_jour_actuel = jours_noms[day_of_week]
         
         is_record_colis = (val_colis >= max_colis) and (val_colis > 0)
 
@@ -193,7 +204,10 @@ if uploaded_file is not None:
         with st.container(border=True):
             st.markdown(f"<div style='background-color: {bg_header}; color: white; padding: 8px; font-weight: bold; border-radius: 5px; text-align: center; margin-bottom: 5px;'>{title_text}</div>", unsafe_allow_html=True)
             st.markdown(f"<h1 style='color: {bg_header}; text-align: center; font-size: 2.0em; margin: 0;'>{val_colis:,.0f}</h1>", unsafe_allow_html=True)
-            st.markdown(f"<p style='text-align: right; color: #666; margin: 0 0 2px 0; font-size: 0.8em;'>Record : {max_colis:,.0f}</p>", unsafe_allow_html=True)
+            
+            # Affichage des records en bas de l'encadré
+            st.markdown(f"<p style='text-align: right; color: #666; margin: 0 0 0 0; font-size: 0.8em;'>Record : {max_colis:,.0f}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: right; color: #888; margin: 0 0 2px 0; font-size: 0.75em;'>Record {nom_jour_actuel} : {max_colis_dow:,.0f}</p>", unsafe_allow_html=True)
 
             fig_record = go.Figure()
             fig_record.add_trace(go.Bar(
@@ -530,11 +544,9 @@ if uploaded_file is not None:
             st.text_input("Saisir l'objectif de colis du jour", key='obj_colis_val', label_visibility="collapsed", on_change=update_config)
 
         with st.container(border=True):
-            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🔥 Défi Collectif  //  Informations du Jour</div>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>🔥 Défi Collectif // Informations du Jour</div>", unsafe_allow_html=True)
             st.text_area("Saisir le défi collectif", key='defi_val', label_visibility="collapsed", on_change=update_config)
 
-
-    
     with bot_c2:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px;'>✨ Point Positif & Amélioration de la Veille</div>", unsafe_allow_html=True)
