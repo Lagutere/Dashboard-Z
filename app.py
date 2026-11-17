@@ -245,42 +245,17 @@ if uploaded_file is not None:
         with st.container(border=True):
             st.markdown("<div style='background-color: #1a4d2e; color: white; padding: 8px; font-weight: bold; border-radius: 5px; margin-bottom: 5px;'>📦 Reste à Fabriquer (Commandes)</div>", unsafe_allow_html=True)
             
-            fig_donut = go.Figure()
-            fig_donut.add_trace(go.Pie(
+            fig_donut = go.Figure(data=[go.Pie(
                 labels=['Fabriqué (Cde)', 'Restant à fabriquer / RAF (Cde)'],
                 values=[val_fabrique, val_raf],
                 hole=.6,
-                sort=False,
-                direction='counterclockwise',
-                rotation=-90,
-                marker_colors=['#1a4d2e', '#e75480'],
-                textinfo='none',
+                marker_colors=['#1a4d2e', '#ff9999'],
+                textinfo='label+value',
                 hoverinfo='label+value'
-            ))
-            # Étiquettes placées à la main, à l'intérieur de chaque arc
-            total_donut = val_fabrique + val_raf
-            if total_donut > 0:
-                import math
-                a_start = 90.0
-                for lbl, v, colr in zip(
-                        ['Fabriqué (Cde)', 'Restant à fabriquer / RAF (Cde)'],
-                        [val_fabrique, val_raf],
-                        ['#1a4d2e', '#e75480']):
-                    if v <= 0:
-                        continue
-                    sweep = 360.0 * v / total_donut
-                    mid = math.radians(a_start + (sweep / 2.0) * 0.99)
-                    fig_donut.add_annotation(
-                        text=f"<b>{lbl}<br>{v:,.0f}</b>",
-                        x=0.78 * math.cos(mid), y=0.78 * math.sin(mid),
-                        showarrow=False, align='center',
-                        font=dict(color='white', size=11, family='Helvetica Neue')
-                    )
-                    a_start += sweep
+            )])
             fig_donut.update_layout(
-                height=235, margin=dict(t=0, b=0, l=0, r=0), showlegend=False,
-                xaxis=dict(visible=False, range=[-1.35, 1.35]),
-                yaxis=dict(visible=False, range=[-1.35, 1.35], scaleanchor='x')
+                height=235, margin=dict(t=0, b=0, l=0, r=0), showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
