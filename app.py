@@ -436,15 +436,15 @@ if uploaded_file is not None:
         cols_j5 = [c for c in df.columns if str(c).strip() == 'J-5']
         if cols_j5:
             i0 = list(df.columns).index(cols_j5[0])
-            age_cols = list(df.columns[i0:i0 + 5])
-            age_labels = ['J-5', 'J-4', 'J-3', 'J-2', 'J-1', 'J+0']
-            age_colors = ['#ff6a00', '#ffa968', '#ffc229', '#ffee33', '#94de50', '#94de50']
+            age_cols = list(df.columns[i0:i0 + 6])
+            age_labels = ['J-5', 'J-4', 'J-3', 'J-2', 'J-1', 'J']
+            age_colors = ['#ff6a00', '#ffa968', '#ffc229', '#ffee33', '#94de50', '#4caf00']
             age_vals = []
             for c in age_cols:
                 v = pd.to_numeric(row_veille.get(c, 0), errors='coerce')
-                age_vals.append(0 if pd.isna(v) else int(v))
+                age_vals.append(0 if pd.isna(v) else int(round(v)))
             total_age = sum(age_vals)
-            min_w = max(total_age, 1) * 0.09  # largeur minimale pour garder le nombre lisible
+            min_w = max(total_age, 1) * 0.08  # largeur minimale pour garder le nombre lisible
             cells_lbl, cells_val = "", ""
             for lbl, v, colr in zip(age_labels, age_vals, age_colors):
                 if v == 0:
