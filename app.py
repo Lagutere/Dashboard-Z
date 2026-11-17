@@ -173,7 +173,14 @@ if uploaded_file is not None:
     # BLOC 1 : BILAN & INDICATEURS DE LA VEILLE
     # ==========================================
     st.markdown('<div class="bg-section-veille">', unsafe_allow_html=True)
-    st.markdown('<div class="title-highlight-veille">🐱 Bilan & Indicateurs de la Veille</div>', unsafe_allow_html=True)
+    mois_noms = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+    jours_fr = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
+    date_fr = f"{jours_fr[selected_date.weekday()]} {selected_date.day} {mois_noms[selected_date.month - 1]} {selected_date.year}"
+    st.markdown(
+        f'<div style="display:flex; align-items:center; gap:20px; margin-bottom:15px;">'
+        f'<div class="title-highlight-veille" style="margin-bottom:0;">🐱 Bilan & Indicateurs de la Veille</div>'
+        f'<div style="color:#1a4d2e; font-size:1.5em; font-weight:bold; font-family:\'Helvetica Neue\', sans-serif;">{date_fr}</div>'
+        f'</div>', unsafe_allow_html=True)
 
     top_c1, top_c23 = st.columns([1, 2])
     top_c2, top_c3 = top_c23.columns(2)
@@ -424,14 +431,14 @@ if uploaded_file is not None:
                 st.plotly_chart(fig_bar_vert, use_container_width=True)
 
 
-    # HISTOGRAMME : ÂGE DES COMMANDES (retard J-5 à J-1) sous les colonnes 2 et 3
+    # HISTOGRAMME : ÂGE DES COMMANDES (retard J-5 à J) sous les colonnes 2 et 3
     with top_c23:
         cols_j5 = [c for c in df.columns if str(c).strip() == 'J-5']
         if cols_j5:
             i0 = list(df.columns).index(cols_j5[0])
             age_cols = list(df.columns[i0:i0 + 5])
-            age_labels = ['J-5', 'J-4', 'J-3', 'J-2', 'J-1']
-            age_colors = ['#ff6a00', '#ffa968', '#ffc229', '#ffee33', '#94de50']
+            age_labels = ['J-5', 'J-4', 'J-3', 'J-2', 'J-1', 'J+0']
+            age_colors = ['#ff6a00', '#ffa968', '#ffc229', '#ffee33', '#94de50', '#94de50']
             age_vals = []
             for c in age_cols:
                 v = pd.to_numeric(row_veille.get(c, 0), errors='coerce')
@@ -440,6 +447,8 @@ if uploaded_file is not None:
             min_w = max(total_age, 1) * 0.09  # largeur minimale pour garder le nombre lisible
             cells_lbl, cells_val = "", ""
             for lbl, v, colr in zip(age_labels, age_vals, age_colors):
+                if v == 0:
+                    continue
                 w = max(v, min_w)
                 cells_lbl += f"<div style='flex:{w} 1 0; text-align:center; font-size:0.8em; color:#000;'>{lbl}</div>"
                 cells_val += f"<div style='flex:{w} 1 0; background:{colr}; text-align:center; font-weight:bold; font-size:1.3em; color:#000; padding:6px 0;'>{v}</div>"
@@ -450,7 +459,7 @@ if uploaded_file is not None:
                     f"<div style='display:flex; border-radius:8px; overflow:hidden;'>{cells_val}</div>",
                     unsafe_allow_html=True)
         else:
-            st.warning("Colonnes 'J-5' à 'J-1' (CDES Retard) introuvables dans le CSV.")
+            st.warning("Colonnes 'J-5' à 'J' (CDES Retard) introuvables dans le CSV.")
 
     # GRAPHIQUES MID
     mid_c1, mid_c2 = st.columns(2)
