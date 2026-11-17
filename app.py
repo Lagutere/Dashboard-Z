@@ -249,6 +249,9 @@ if uploaded_file is not None:
                 labels=['Fabriqué (Cde)', 'Restant à fabriquer / RAF (Cde)'],
                 values=[val_fabrique, val_raf],
                 hole=.6,
+                sort=False,
+                direction='clockwise',
+                rotation=-90,
                 marker_colors=['#1a4d2e', '#ff9999'],
                 textinfo='label+value',
                 hoverinfo='label+value'
