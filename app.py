@@ -251,7 +251,7 @@ if uploaded_file is not None:
                 hole=.6,
                 sort=False,
                 direction='counterclockwise',
-                rotation=90,
+                rotation=180,
                 marker_colors=['#1a4d2e', '#ff9999'],
                 textinfo='label+value',
                 hoverinfo='label+value'
